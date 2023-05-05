@@ -92,6 +92,7 @@ def get_parser(**parser_kwargs):
         const=True,
         default="",
         nargs="?",
+        required=True,
         help="resume from logdir or checkpoint in logdir",
     )
     parser.add_argument(

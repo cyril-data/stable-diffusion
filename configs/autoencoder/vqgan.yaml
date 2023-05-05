@@ -2,19 +2,19 @@ model:
   base_learning_rate: 1.e-5
   target: ldm.models.autoencoder.VQModel
   params:
-    embed_dim: 256
-    n_embed: 1024
+    embed_dim: 3
+    n_embed: 256
     image_key: 0
     ddconfig:
       double_z: False
-      z_channels: 256
-      resolution: 256
+      z_channels: 3
+      resolution: 128
       in_channels: 3
       out_ch: 3
       ch: 128
-      ch_mult: [ 1,1,2,2,4]  # num_down = len(ch_mult)-1
+      ch_mult: [ 1,2,4 ]  # num_down = len(ch_mult)-1
       num_res_blocks: 2
-      attn_resolutions: [16]
+      attn_resolutions: [ ]
       dropout: 0.0
 
     lossconfig:
@@ -22,7 +22,7 @@ model:
       params:
         disc_conditional: False
         disc_in_channels: 3
-        disc_start: 40000
+        disc_start: 0
         disc_weight: 0.8
         codebook_weight: 1.0
 
