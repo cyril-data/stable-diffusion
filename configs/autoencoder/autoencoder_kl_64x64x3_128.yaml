@@ -1,20 +1,21 @@
 model:
-  base_learning_rate: 4.5e-6
+  base_learning_rate: 1.e-5
   target: ldm.models.autoencoder.AutoencoderKL
   params:
     monitor: "val/rec_loss"
     embed_dim: 3
+    image_key: 0
     lossconfig:
       target: ldm.modules.losses.LPIPSWithDiscriminator
       params:
-        disc_start: 50001
+        disc_start: 40001
         kl_weight: 0.000001
         disc_weight: 0.5
 
     ddconfig:
       double_z: True
       z_channels: 3
-      resolution: 256
+      resolution: 128
       in_channels: 3
       out_ch: 3
       ch: 128
@@ -23,22 +24,15 @@ model:
       attn_resolutions: [ ]
       dropout: 0.0
 
-
 data:
   target: main.DataModuleFromConfig
   params:
     batch_size: 2
     wrap: True
     train:
-      target: ldm.data.imagenet.ImageNetSRTrain
-      params:
-        size: 256
-        degradation: pil_nearest
+      target: ldm.data.GENS_handler.ISData_Loader_train
     validation:
-      target: ldm.data.imagenet.ImageNetSRValidation
-      params:
-        size: 256
-        degradation: pil_nearest
+      target: ldm.data.GENS_handler.ISData_Loader_val
 
 lightning:
   callbacks:
@@ -49,7 +43,12 @@ lightning:
         max_images: 8
         increase_log_steps: True
 
+  modelcheckpoint:
+      every_n_epochs: 200
+      save_last: True
+      
   trainer:
     benchmark: True
-    accumulate_grad_batches: 2
-    max_epochs: 3000
+    # accumulate_grad_batches: 2
+    accelerator: ddp
+    max_epochs: 30000

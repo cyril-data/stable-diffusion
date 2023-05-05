@@ -1,24 +1,50 @@
-import argparse, os, sys, datetime, glob, importlib, csv
-import numpy as np
-import time
-import torch
-import torchvision
-import pytorch_lightning as pl
-
-from packaging import version
-from omegaconf import OmegaConf
-from torch.utils.data import random_split, DataLoader, Dataset, Subset
-from functools import partial
-from PIL import Image
-
-from pytorch_lightning import seed_everything
-from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
-from pytorch_lightning.utilities.distributed import rank_zero_only
-from pytorch_lightning.utilities import rank_zero_info
-
-from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
+from ldm.data.base import Txt2ImgIterableBaseDataset
+from pytorch_lightning.utilities import rank_zero_info
+from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateMonitor
+from pytorch_lightning.trainer import Trainer
+from pytorch_lightning import seed_everything
+from PIL import Image
+from functools import partial
+from torch.utils.data import random_split, DataLoader, Dataset, Subset
+from omegaconf import OmegaConf
+from packaging import version
+import pytorch_lightning as pl
+import torchvision
+import torch
+import time
+import numpy as np
+import csv
+import importlib
+import glob
+import datetime
+import sys
+import argparse
+import os
+from pathlib import Path
+
+os.environ["NCCL_DEBUG"] = "INFO"
+
+
+
+makedirs_origin = os.makedirs
+
+
+def makedirs_pathlib(path, mode=0o777, exist_ok=False):
+    p = Path(path)
+    try:
+        p.mkdir(mode=mode, exist_ok=exist_ok)
+    except FileNotFoundError as e:
+        print(f"WARNING : {e} \n=> Nested directory creation activates")
+        p.mkdir(mode=mode, parents=True, exist_ok=exist_ok)
+    except FileExistsError as e:
+        print(f"WARNING : {e} \n=> the nested directory already exist")
+        pass
+    pass
+
+
+os.makedirs = makedirs_pathlib
 
 
 def get_parser(**parser_kwargs):
@@ -120,6 +146,12 @@ def get_parser(**parser_kwargs):
         default=True,
         help="scale base-lr by ngpu * batch_size * n_accumulate",
     )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=None,
+        help="overwrite batch_size",
+    )
     return parser
 
 
@@ -152,7 +184,8 @@ def worker_init_fn(_):
     if isinstance(dataset, Txt2ImgIterableBaseDataset):
         split_size = dataset.num_records // worker_info.num_workers
         # reset num_records to the true number to retain reliable length information
-        dataset.sample_ids = dataset.valid_ids[worker_id * split_size:(worker_id + 1) * split_size]
+        dataset.sample_ids = dataset.valid_ids[worker_id *
+                                               split_size:(worker_id + 1) * split_size]
         current_id = np.random.choice(len(np.random.get_state()[1]), 1)
         return np.random.seed(np.random.get_state()[1][current_id] + worker_id)
     else:
@@ -173,10 +206,12 @@ class DataModuleFromConfig(pl.LightningDataModule):
             self.train_dataloader = self._train_dataloader
         if validation is not None:
             self.dataset_configs["validation"] = validation
-            self.val_dataloader = partial(self._val_dataloader, shuffle=shuffle_val_dataloader)
+            self.val_dataloader = partial(
+                self._val_dataloader, shuffle=shuffle_val_dataloader)
         if test is not None:
             self.dataset_configs["test"] = test
-            self.test_dataloader = partial(self._test_dataloader, shuffle=shuffle_test_loader)
+            self.test_dataloader = partial(
+                self._test_dataloader, shuffle=shuffle_test_loader)
         if predict is not None:
             self.dataset_configs["predict"] = predict
             self.predict_dataloader = self._predict_dataloader
@@ -195,7 +230,8 @@ class DataModuleFromConfig(pl.LightningDataModule):
                 self.datasets[k] = WrappedDataset(self.datasets[k])
 
     def _train_dataloader(self):
-        is_iterable_dataset = isinstance(self.datasets['train'], Txt2ImgIterableBaseDataset)
+        is_iterable_dataset = isinstance(
+            self.datasets['train'], Txt2ImgIterableBaseDataset)
         if is_iterable_dataset or self.use_worker_init_fn:
             init_fn = worker_init_fn
         else:
@@ -216,7 +252,8 @@ class DataModuleFromConfig(pl.LightningDataModule):
                           shuffle=shuffle)
 
     def _test_dataloader(self, shuffle=False):
-        is_iterable_dataset = isinstance(self.datasets['train'], Txt2ImgIterableBaseDataset)
+        is_iterable_dataset = isinstance(
+            self.datasets['train'], Txt2ImgIterableBaseDataset)
         if is_iterable_dataset or self.use_worker_init_fn:
             init_fn = worker_init_fn
         else:
@@ -258,14 +295,40 @@ class SetupCallback(Callback):
         if trainer.global_rank == 0:
             # Create logdirs and save configs
             os.makedirs(self.logdir, exist_ok=True)
+            # path_temp = self.logdir
+            # if not os.path.exists(path_temp) :
+            #     os.makedirs(path_temp)
+
             os.makedirs(self.ckptdir, exist_ok=True)
+            # path_temp = self.ckptdir
+            # if not os.path.exists(path_temp) :
+            #     os.makedirs(path_temp)
+
             os.makedirs(self.cfgdir, exist_ok=True)
+            print("\n\n********************")
+            print("self.logdir", self.logdir, Path(self.logdir).is_dir())
+            print("self.ckptdir", self.ckptdir, Path(self.ckptdir).is_dir())
+            print("self.cfgdir", self.cfgdir, Path(self.cfgdir).is_dir())
+
+            print("\n\n********************")
+
+            # path = self.cfgdir
+            # isExist = os.path.exists(path)
+            # if not isExist:
+            #     os.makedirs(path)
 
             if "callbacks" in self.lightning_config:
                 if 'metrics_over_trainsteps_checkpoint' in self.lightning_config['callbacks']:
-                    os.makedirs(os.path.join(self.ckptdir, 'trainstep_checkpoints'), exist_ok=True)
+                    os.makedirs(os.path.join(
+                        self.ckptdir, 'trainstep_checkpoints'), exist_ok=True)
+                    # path_temp = self.ckptdiros.path.join(
+                    #     self.ckptdir, 'trainstep_checkpoints')
+                    # if not os.path.exists(path_temp) :
+                    #     os.makedirs(path_temp)
+
             print("Project config")
             print(OmegaConf.to_yaml(self.config))
+
             OmegaConf.save(self.config,
                            os.path.join(self.cfgdir, "{}-project.yaml".format(self.now)))
 
@@ -280,6 +343,12 @@ class SetupCallback(Callback):
                 dst, name = os.path.split(self.logdir)
                 dst = os.path.join(dst, "child_runs", name)
                 os.makedirs(os.path.split(dst)[0], exist_ok=True)
+                # if not os.path.exists(os.path.split(dst)[0]) :
+                # os.makedirs(os.path.split(dst)[0])
+                print('\n\n********')
+                print('self.logdir', self.logdir)
+                print('dst', dst)
+                print('\n\n********')
                 try:
                     os.rename(self.logdir, dst)
                 except FileNotFoundError:
@@ -297,7 +366,8 @@ class ImageLogger(Callback):
         self.logger_log_images = {
             pl.loggers.TestTubeLogger: self._testtube,
         }
-        self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
+        self.log_steps = [
+            2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
             self.log_steps = [self.batch_freq]
         self.clamp = clamp
@@ -335,6 +405,10 @@ class ImageLogger(Callback):
                 batch_idx)
             path = os.path.join(root, filename)
             os.makedirs(os.path.split(path)[0], exist_ok=True)
+            # path_temp = os.path.split(path)[0]
+            # if not os.path.exists(path_temp) :
+            #     os.makedirs(path_temp)
+
             Image.fromarray(grid).save(path)
 
     def log_img(self, pl_module, batch, batch_idx, split="train"):
@@ -350,7 +424,8 @@ class ImageLogger(Callback):
                 pl_module.eval()
 
             with torch.no_grad():
-                images = pl_module.log_images(batch, split=split, **self.log_images_kwargs)
+                images = pl_module.log_images(
+                    batch, split=split, **self.log_images_kwargs)
 
             for k in images:
                 N = min(images[k].shape[0], self.max_images)
@@ -360,10 +435,13 @@ class ImageLogger(Callback):
                     if self.clamp:
                         images[k] = torch.clamp(images[k], -1., 1.)
 
+            print("******* log_local ImageLogger ", pl_module.logger.save_dir)
+
             self.log_local(pl_module.logger.save_dir, split, images,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
 
-            logger_log_images = self.logger_log_images.get(logger, lambda *args, **kwargs: None)
+            logger_log_images = self.logger_log_images.get(
+                logger, lambda *args, **kwargs: None)
             logger_log_images(pl_module, images, pl_module.global_step, split)
 
             if is_train:
@@ -402,7 +480,8 @@ class CUDACallback(Callback):
 
     def on_train_epoch_end(self, trainer, pl_module, outputs):
         torch.cuda.synchronize(trainer.root_gpu)
-        max_memory = torch.cuda.max_memory_allocated(trainer.root_gpu) / 2 ** 20
+        max_memory = torch.cuda.max_memory_allocated(
+            trainer.root_gpu) / 2 ** 20
         epoch_time = time.time() - self.start_time
 
         try:
@@ -489,7 +568,8 @@ if __name__ == "__main__":
             ckpt = os.path.join(logdir, "checkpoints", "last.ckpt")
 
         opt.resume_from_checkpoint = ckpt
-        base_configs = sorted(glob.glob(os.path.join(logdir, "configs/*.yaml")))
+        base_configs = sorted(
+            glob.glob(os.path.join(logdir, "configs/*.yaml")))
         opt.base = base_configs + opt.base
         _tmp = logdir.split("/")
         nowname = _tmp[-1]
@@ -518,7 +598,7 @@ if __name__ == "__main__":
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
         # default to ddp
-        trainer_config["accelerator"] = "ddp"
+        # trainer_config["accelerator"] = "ddp"
         for k in nondefault_trainer_args(opt):
             trainer_config[k] = getattr(opt, k)
         if not "gpus" in trainer_config:
@@ -528,6 +608,7 @@ if __name__ == "__main__":
             gpuinfo = trainer_config["gpus"]
             print(f"Running on GPUs {gpuinfo}")
             cpu = False
+
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
@@ -583,11 +664,12 @@ if __name__ == "__main__":
         if "modelcheckpoint" in lightning_config:
             modelckpt_cfg = lightning_config.modelcheckpoint
         else:
-            modelckpt_cfg =  OmegaConf.create()
+            modelckpt_cfg = OmegaConf.create()
         modelckpt_cfg = OmegaConf.merge(default_modelckpt_cfg, modelckpt_cfg)
         print(f"Merged modelckpt-cfg: \n{modelckpt_cfg}")
         if version.parse(pl.__version__) < version.parse('1.4.0'):
-            trainer_kwargs["checkpoint_callback"] = instantiate_from_config(modelckpt_cfg)
+            trainer_kwargs["checkpoint_callback"] = instantiate_from_config(
+                modelckpt_cfg)
 
         # add callback which sets up log directory
         default_callbacks_cfg = {
@@ -623,7 +705,8 @@ if __name__ == "__main__":
             },
         }
         if version.parse(pl.__version__) >= version.parse('1.4.0'):
-            default_callbacks_cfg.update({'checkpoint_callback': modelckpt_cfg})
+            default_callbacks_cfg.update(
+                {'checkpoint_callback': modelckpt_cfg})
 
         if "callbacks" in lightning_config:
             callbacks_cfg = lightning_config.callbacks
@@ -646,7 +729,8 @@ if __name__ == "__main__":
                      }
                      }
             }
-            default_callbacks_cfg.update(default_metrics_over_trainsteps_ckpt_dict)
+            default_callbacks_cfg.update(
+                default_metrics_over_trainsteps_ckpt_dict)
 
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
         if 'ignore_keys_callback' in callbacks_cfg and hasattr(trainer_opt, 'resume_from_checkpoint'):
@@ -654,33 +738,72 @@ if __name__ == "__main__":
         elif 'ignore_keys_callback' in callbacks_cfg:
             del callbacks_cfg['ignore_keys_callback']
 
-        trainer_kwargs["callbacks"] = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+        trainer_kwargs["callbacks"] = [instantiate_from_config(
+            callbacks_cfg[k]) for k in callbacks_cfg]
+
+        print("\n\n\n **************  trainer_opt", trainer_opt)
+        print("trainer_kwargs", trainer_kwargs)
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
-        trainer.logdir = logdir  ###
+        trainer.logdir = logdir
 
         # data
-        data = instantiate_from_config(config.data)
+
+        # **********************GENS********************
+        # data = instantiate_from_config(config.data)
+        # print("\n\n data", dir(data), data)
+        # data.prepare_data()
+        # print("\n\n data", dir(data), data)
+        # data.setup()
+        # print("\n\n data", dir(data), data)
+
+        if opt.batch_size != None:
+            config.data.params.batch_size = opt.batch_size
+
+        import ldm.data.GENS_handler as DSH
+        Dl_train = DSH.ISData_Loader_train(config.data.params.batch_size)
+        data, dataset = Dl_train.loader()
+        # split the train set into two
+        # seed = torch.Generator().manual_seed(42)
+        # train_set, valid_set = random_split(dataset, [train_set_size:=8001, valid_set_size:=2000], generator=seed)
+        # print(f"\n\n ******** train_set : {len(train_set)} **********")
+        # print(f"\n\n ******** valid_set : {len(valid_set)} **********")
+        # train_loader = DataLoader(
+        #     train_set,
+        #     batch_size=config.data.params.batch_size,
+        #     num_workers= config.data.params.batch_size * 2,
+        #     shuffle=True)
+        # valid_loader = DataLoader(valid_set,
+        #     batch_size=config.data.params.batch_size,
+        #     num_workers= config.data.params.batch_size * 2,
+        #     shuffle=True)
+
+        # # **********************stable********************
+        # data = instantiate_from_config(config.data)
         # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
         # calling these ourselves should not be necessary but it is.
         # lightning still takes care of proper multiprocessing though
-        data.prepare_data()
-        data.setup()
-        print("#### Data #####")
-        for k in data.datasets:
-            print(f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
+        # data.prepare_data()
+        # data.setup()
+        # print("#### Data #####", dir(data.datasets["train"]["data"]))
+        # for k in data.datasets:
+
+        #     print(
+        #         f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
 
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
         if not cpu:
-            ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
+            ngpu = 1 if lightning_config.trainer.gpus == 0 else len(
+                lightning_config.trainer.gpus.strip(",").split(','))
         else:
             ngpu = 1
+        print("\n\n\n\n ******************     ngpu", ngpu)
         if 'accumulate_grad_batches' in lightning_config.trainer:
             accumulate_grad_batches = lightning_config.trainer.accumulate_grad_batches
         else:
             accumulate_grad_batches = 1
-        print(f"accumulate_grad_batches = {accumulate_grad_batches}")
+
         lightning_config.trainer.accumulate_grad_batches = accumulate_grad_batches
         if opt.scale_lr:
             model.learning_rate = accumulate_grad_batches * ngpu * bs * base_lr
@@ -692,8 +815,8 @@ if __name__ == "__main__":
             print("++++ NOT USING LR SCALING ++++")
             print(f"Setting learning rate to {model.learning_rate:.2e}")
 
-
         # allow checkpointing via USR1
+
         def melk(*args, **kwargs):
             # run all checkpoint hooks
             if trainer.global_rank == 0:
@@ -701,22 +824,21 @@ if __name__ == "__main__":
                 ckpt_path = os.path.join(ckptdir, "last.ckpt")
                 trainer.save_checkpoint(ckpt_path)
 
-
         def divein(*args, **kwargs):
             if trainer.global_rank == 0:
-                import pudb;
+                import pudb
                 pudb.set_trace()
-
 
         import signal
 
-        signal.signal(signal.SIGUSR1, melk)
-        signal.signal(signal.SIGUSR2, divein)
+        # signal.signal(signal.SIGUSR1, melk)
+        # signal.signal(signal.SIGUSR2, divein)
 
         # run
         if opt.train:
             try:
                 trainer.fit(model, data)
+
             except Exception:
                 melk()
                 raise
@@ -736,6 +858,9 @@ if __name__ == "__main__":
             dst, name = os.path.split(logdir)
             dst = os.path.join(dst, "debug_runs", name)
             os.makedirs(os.path.split(dst)[0], exist_ok=True)
+            # path_temp = os.path.split(dst)[0]
+            # if not os.path.exists(path_temp) :
+            #     os.makedirs(path_temp)
             os.rename(logdir, dst)
         if trainer.global_rank == 0:
             print(trainer.profiler.summary())
