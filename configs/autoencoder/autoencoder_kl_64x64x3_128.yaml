@@ -1,5 +1,5 @@
 model:
-  base_learning_rate: 1.e-5
+  base_learning_rate: 5.e-6
   target: ldm.models.autoencoder.AutoencoderKL
   params:
     monitor: "val/rec_loss"
@@ -8,7 +8,7 @@ model:
     lossconfig:
       target: ldm.modules.losses.LPIPSWithDiscriminator
       params:
-        disc_start: 40001
+        disc_start: 50001
         kl_weight: 0.000001
         disc_weight: 0.5
 
