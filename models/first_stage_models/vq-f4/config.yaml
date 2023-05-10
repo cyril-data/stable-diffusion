@@ -3,6 +3,7 @@ model:
   target: ldm.models.autoencoder.VQModel
   params:
     embed_dim: 3
+    image_key: 0
     n_embed: 8192
     monitor: val/rec_loss
 

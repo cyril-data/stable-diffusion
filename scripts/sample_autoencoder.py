@@ -139,7 +139,23 @@ def get_parser(**parser_kwargs):
         "--logdir",
         type=str,
         default="logs_sample",
-        help="directory for logging dat shit",
+        help="directory for logging",
+    )
+
+    parser.add_argument(
+        "-o",
+        "--only_sample",
+        type=str,
+        default=False,
+        help="remove input and reconstruction, keep only unconstrained sample generation",
+    )
+
+    parser.add_argument(
+        "-g",
+        "--rgb",
+        type=str,
+        default=False,
+        help="remove input and reconstruction, keep only unconstrained sample generation",
     )
     return parser
 
@@ -247,7 +263,7 @@ if __name__ == "__main__":
     for batch_ndx, sample in enumerate(data):
 
         with torch.no_grad():
-            images = model.log_images(sample, only_samples=False)
+            images = model.log_images(sample, only_samples=opt.only_sample)
         for k in images:
             images[k] = images[k]
             if isinstance(images[k], torch.Tensor):
@@ -256,39 +272,53 @@ if __name__ == "__main__":
 
             for i, image in enumerate(images[k]):
 
-                invTrans = transforms.Compose([
-                    transforms.Normalize(
-                        mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
-                    transforms.Normalize(
-                        mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
-                    transforms.Normalize(
-                        mean=[0.] * 3, std=[1 / el for el in stds]),
-                    transforms.Normalize(
-                        mean=[-el for el in means], std=[1.] * 3),
-                ])
-                grid = invTrans(image)
-                grid = torch.transpose(grid, 0, 2)
-                grid = torch.fliplr(grid)
-                grid = torch.rot90(grid, 2)
-                grid = grid.numpy()
+                if opt.rgb:
 
-                filename = f"{k}-{batch_ndx}-{i}.png"
-                path = os.path.join(opt.logdir, filename)
-                os.makedirs(opt.logdir, exist_ok=True)
-                os.makedirs(opt.logdir + "/u", exist_ok=True)
-                os.makedirs(opt.logdir + "/u/npy", exist_ok=True)
-                os.makedirs(opt.logdir + "/v", exist_ok=True)
-                os.makedirs(opt.logdir + "/v/npy", exist_ok=True)
-                os.makedirs(opt.logdir + "/t", exist_ok=True)
-                os.makedirs(opt.logdir + "/t/npy", exist_ok=True)
+                    grid = torchvision.utils.make_grid(images[k], nrow=4)
+                    grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
+                    grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
+                    grid = grid.numpy()
+                    grid = (grid * 255).astype(np.uint8)
 
-                # print_stat(grid, inc="*", depht=2)
-                save_gray_image(grid[:, :, 0], opt.logdir +
-                                "/u/" + filename, 'viridis')
-                save_gray_image(grid[:, :, 1], opt.logdir +
-                                "/v/" + filename, 'viridis')
-                save_gray_image(grid[:, :, 2], opt.logdir +
-                                "/t/" + filename, 'RdBu_r')
+                    filename = f"{k}-{batch_ndx}-{i}_rgb.png"
+                    os.makedirs(opt.logdir, exist_ok=True)
+                    os.makedirs(opt.logdir + "/rgb", exist_ok=True)
+
+                    Image.fromarray(grid).save(opt.logdir + "/rgb/" + filename)
+                else:
+                    invTrans = transforms.Compose([
+                        transforms.Normalize(
+                            mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
+                        transforms.Normalize(
+                            mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
+                        transforms.Normalize(
+                            mean=[0.] * 3, std=[1 / el for el in stds]),
+                        transforms.Normalize(
+                            mean=[-el for el in means], std=[1.] * 3),
+                    ])
+                    grid = invTrans(image)
+                    grid = torch.transpose(grid, 0, 2)
+                    grid = torch.fliplr(grid)
+                    grid = torch.rot90(grid, 2)
+                    grid = grid.numpy()
+
+                    filename = f"{k}-{batch_ndx}-{i}.png"
+                    path = os.path.join(opt.logdir, filename)
+                    os.makedirs(opt.logdir, exist_ok=True)
+                    os.makedirs(opt.logdir + "/u", exist_ok=True)
+                    os.makedirs(opt.logdir + "/u/npy", exist_ok=True)
+                    os.makedirs(opt.logdir + "/v", exist_ok=True)
+                    os.makedirs(opt.logdir + "/v/npy", exist_ok=True)
+                    os.makedirs(opt.logdir + "/t", exist_ok=True)
+                    os.makedirs(opt.logdir + "/t/npy", exist_ok=True)
+
+                    # print_stat(grid, inc="*", depht=2)
+                    save_gray_image(grid[:, :, 0], opt.logdir +
+                                    "/u/" + filename, 'viridis')
+                    save_gray_image(grid[:, :, 1], opt.logdir +
+                                    "/v/" + filename, 'viridis')
+                    save_gray_image(grid[:, :, 2], opt.logdir +
+                                    "/t/" + filename, 'RdBu_r')
 
         if config.data.params.batch_size * (batch_ndx + 1) > opt.nb_images:
             break

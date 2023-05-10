@@ -426,7 +426,7 @@ class AutoencoderKL(pl.LightningModule):
         return self.decoder.conv_out.weight
 
     @torch.no_grad()
-    def log_images(self, batch, only_inputs=False, **kwargs):
+    def log_images(self, batch, only_inputs=False, only_samples=False, **kwargs):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
@@ -438,9 +438,10 @@ class AutoencoderKL(pl.LightningModule):
                 x = self.to_rgb(x)
                 xrec = self.to_rgb(xrec)
             log["samples"] = self.decode(torch.randn_like(posterior.sample()))
-            log["reconstructions"] = xrec
-        log["inputs"] = x
-
+            if not only_samples:
+                log["reconstructions"] = xrec
+        if not only_samples:
+            log["inputs"] = x
         return log
 
     def to_rgb(self, x):
