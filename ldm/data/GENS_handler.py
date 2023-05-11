@@ -79,7 +79,6 @@ class ISDataset(Dataset):
 
         # idx=idx+19
         sample_path = os.path.join(self.data_dir, self.labels.iloc[idx, 0])
-        # print(sample_path, idx)
         sample = np.float32(np.load(sample_path+'.npy')
                             )[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]]
         # print("where I am", len(sample))
@@ -185,7 +184,6 @@ class ISDataset(Dataset):
 
         # sample_init = sample.copy()
 
-
         # sample_verif = invTransM1(sample)
 
         # sample_verif = invTransM2(sample_verif)
@@ -217,7 +215,7 @@ class ISDataset(Dataset):
         sample = self.transform(sample)
 
         # print("sample max 0", torch.max(sample))
-        # # test 0 learn: 
+        # # test 0 learn:
         # sample =  torch.minimum(sample, torch.zeros_like(sample))
 
         # print("sample max 1", torch.max(sample))
@@ -225,7 +223,7 @@ class ISDataset(Dataset):
         return torch.transpose(sample, 0, 2), importance, position
 
 
-class ISData_Loader_train():
+class ISData_Loader_train(ISDataset):
     def __init__(self,
                  batch_size=1,
                  var_indexes=[1, 2, 3],
@@ -233,6 +231,9 @@ class ISData_Loader_train():
                  path="data/train_IS_1_1.0_0_0_0_0_0_256_done_red/",
                  shuf=False,
                  add_coords=False):
+
+        super().__init__(path, 'IS_method_labels.csv',
+                         var_indexes, crop_indexes)
 
         self.path = path
         self.batch = batch_size
@@ -264,14 +265,17 @@ class ISData_Loader_train():
         return self.means, self.stds
 
 
-class ISData_Loader_val():
+class ISData_Loader_val(ISDataset):
     def __init__(self,
                  batch_size=1,
                  var_indexes=[1, 2, 3],
                  crop_indexes=[78, 206, 55, 183],
-                 path="data/test_IS_1_1.0_0_0_0_0_0_256_done_red/",
+                 path="data/train_IS_1_1.0_0_0_0_0_0_256_done_red/",
                  shuf=False,
                  add_coords=False):
+
+        super().__init__(path, 'IS_method_labels.csv',
+                         var_indexes, crop_indexes)
 
         self.path = path
         self.batch = batch_size
@@ -304,3 +308,25 @@ class ISData_Loader_val():
 
     def norm_info(self):
         return self.means, self.stds
+
+
+# class ImageNetSRTrain(ImageNetSR):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+
+#     def get_base(self):
+#         with open("data/imagenet_train_hr_indices.p", "rb") as f:
+#             indices = pickle.load(f)
+#         dset = ImageNetTrain(process_images=False,)
+#         return Subset(dset, indices)
+
+
+# class ImageNetSRValidation(ImageNetSR):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+
+#     def get_base(self):
+#         with open("data/imagenet_val_hr_indices.p", "rb") as f:
+#             indices = pickle.load(f)
+#         dset = ImageNetValidation(process_images=False,)
+#         return Subset(dset, indices)

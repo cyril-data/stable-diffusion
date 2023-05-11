@@ -1,0 +1,17 @@
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 1000
+        max_images: 8
+        increase_log_steps: true
+  modelcheckpoint:
+    every_n_epochs: 200
+    save_last: true
+  trainer:
+    benchmark: true
+    accelerator: ddp
+    max_epochs: 30000
+    gpus: 0,
+    resume_from_checkpoint: models/first_stage_models/kl-f4/model.ckpt

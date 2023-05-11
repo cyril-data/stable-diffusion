@@ -27,7 +27,6 @@ from pathlib import Path
 os.environ["NCCL_DEBUG"] = "INFO"
 
 
-
 makedirs_origin = os.makedirs
 
 
@@ -750,33 +749,34 @@ if __name__ == "__main__":
         # data
 
         # **********************GENS********************
-        # data = instantiate_from_config(config.data)
-        # print("\n\n data", dir(data), data)
-        # data.prepare_data()
-        # print("\n\n data", dir(data), data)
-        # data.setup()
-        # print("\n\n data", dir(data), data)
+        data = instantiate_from_config(config.data)
+        print("\n\n data", dir(data), data)
+        data.prepare_data()
+        print("\n\n data", dir(data), data)
+        data.setup()
+        print("\n\n data", dir(data), data)
 
-        if opt.batch_size != None:
-            config.data.params.batch_size = opt.batch_size
+        # if opt.batch_size != None:
+        #     config.data.params.batch_size = opt.batch_size
 
-        import ldm.data.GENS_handler as DSH
-        Dl_train = DSH.ISData_Loader_train(config.data.params.batch_size)
-        data, dataset = Dl_train.loader()
-        # split the train set into two
+        # import ldm.data.GENS_handler as DSH
+        # Dl_train = DSH.ISData_Loader_train(config.data.params.batch_size)
+        # data, dataset = Dl_train.loader()
+        # # split the train set into two
         # seed = torch.Generator().manual_seed(42)
-        # train_set, valid_set = random_split(dataset, [train_set_size:=8001, valid_set_size:=2000], generator=seed)
+        # train_set, valid_set = random_split(
+        #     dataset, [train_set_size := 9001, valid_set_size := 1000], generator=seed)
         # print(f"\n\n ******** train_set : {len(train_set)} **********")
         # print(f"\n\n ******** valid_set : {len(valid_set)} **********")
         # train_loader = DataLoader(
         #     train_set,
         #     batch_size=config.data.params.batch_size,
-        #     num_workers= config.data.params.batch_size * 2,
+        #     num_workers=config.data.params.batch_size * 2,
         #     shuffle=True)
         # valid_loader = DataLoader(valid_set,
-        #     batch_size=config.data.params.batch_size,
-        #     num_workers= config.data.params.batch_size * 2,
-        #     shuffle=True)
+        #                           batch_size=config.data.params.batch_size,
+        #                           num_workers=config.data.params.batch_size * 2,
+        #                           shuffle=True)
 
         # # **********************stable********************
         # data = instantiate_from_config(config.data)
