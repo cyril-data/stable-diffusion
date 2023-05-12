@@ -98,9 +98,17 @@ class VQModel(pl.LightningModule):
             self.model_ema(self)
 
     def encode(self, x):
+        # print("\nencode input", x.shape)
+
         h = self.encoder(x)
+        # print("encode", h.shape)
         h = self.quant_conv(h)
+        # print("encode quant_conv", h.shape)
+
         quant, emb_loss, info = self.quantize(h)
+
+        # print("encode quantize", quant.shape, info)
+
         return quant, emb_loss, info
 
     def encode_to_prequant(self, x):
@@ -109,8 +117,13 @@ class VQModel(pl.LightningModule):
         return h
 
     def decode(self, quant):
+        # print("\tdecode input", quant.shape)
         quant = self.post_quant_conv(quant)
+        # print("\tdecode quant", quant.shape)
+
         dec = self.decoder(quant)
+        # print("\tdecode output", dec.shape)
+
         return dec
 
     def decode_code(self, code_b):
@@ -197,8 +210,7 @@ class VQModel(pl.LightningModule):
                  prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         self.log(f"val{suffix}/aeloss", aeloss,
                  prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        if version.parse(pl.__version__) >= version.parse('1.4.0'):
-            del log_dict_ae[f"val{suffix}/rec_loss"]
+        del log_dict_ae[f"val{suffix}/rec_loss"]
         self.log_dict(log_dict_ae)
         self.log_dict(log_dict_disc)
         return self.log_dict

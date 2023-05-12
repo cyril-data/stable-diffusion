@@ -750,11 +750,8 @@ if __name__ == "__main__":
 
         # **********************GENS********************
         data = instantiate_from_config(config.data)
-        print("\n\n data", dir(data), data)
         data.prepare_data()
-        print("\n\n data", dir(data), data)
         data.setup()
-        print("\n\n data", dir(data), data)
 
         # if opt.batch_size != None:
         #     config.data.params.batch_size = opt.batch_size
