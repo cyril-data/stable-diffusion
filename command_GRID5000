@@ -1,0 +1,29 @@
+Grouille : 12h -r "2023-04-24 19:00:00" vqgan
+oarsub -t exotic -p grouille -l host=1/gpu=2,walltime=14 -r "2023-04-25 19:00:00" "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/vqgan.yaml -t --gpus 0,1 --batch_size 32; sleep infinity"
+
+
+
+
+
+
+graffiti : 60h / vqgan
+oarsub -q production -l host=1/gpu=4,walltime=60 "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/vqgan.yaml -t --gpus 0,1,2,3 --batch_size 4 ; sleep infinity"
+
+
+oarsub -q production -p graffiti -l host=1/gpu=4,walltime=60 "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/autoencoder_kl_64x64x3_128.yaml -t --gpus 0,1,2,3 --batch_size 4 ; sleep infinity"
+
+
+
+grat : 30h with checkpoint 
+    oarsub -q production -l host=1/gpu=4,walltime=30 "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/autoencoder_kl_64x64x3_128.yaml -t --gpus 0,1,2,3,4,5,6,7 --batch_size 32 --resume 'logs/2023-04-23T20-59-56_autoencoder_kl_64x64x3_128' ; sleep infinity"
+
+    oarsub -q production -p grat -l host=1/gpu=4,walltime=60 "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/vqgan.yaml -t --gpus 0,1,2,3,4,5,6,7 --batch_size 32 ; sleep infinity"
+
+    #8 gpus
+    oarsub -q production -l host=1/gpu=8,walltime=60 --notify mail:cyril.regan@loria.fr "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/vqgan.yaml -t --gpus 0,1,2,3,4,5,6,7 --batch_size 32 --resume '../RESULTS/vqgan_3000/' ; sleep infinity"
+
+
+
+
+cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/vqgan.yaml -t --gpus 0,1,2,3 --batch_size 32
+cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base configs/autoencoder/
