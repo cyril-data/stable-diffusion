@@ -1,12 +1,19 @@
 model:
-  base_learning_rate: 1.e-5
-  target: ldm.models.autoencoder.VQModel
+  base_learning_rate: 9.e-6
+  target: ldm.models.autoencoder.AutoencoderKL
   params:
-    embed_dim: 64
-    n_embed: 256
+    monitor: "val/rec_loss"
+    embed_dim: 3
     image_key: 0
+    lossconfig:
+      target: ldm.modules.losses.LPIPSWithDiscriminator
+      params:
+        disc_start: 500000
+        kl_weight: 0.000001
+        disc_weight: 0.5
+
     ddconfig:
-      double_z: False
+      double_z: True
       z_channels: 128
       resolution: 128
       in_channels: 3
@@ -17,20 +24,11 @@ model:
       attn_resolutions: [16]
       dropout: 0.0
 
-    lossconfig:
-      target: ldm.modules.losses.vqperceptual.VQLPIPSWithDiscriminator
-      params:
-        disc_conditional: False
-        disc_in_channels: 3
-        disc_start: 0
-        disc_weight: 0.8
-        codebook_weight: 1.0
-
-
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 2
+    batch_size: 8
+    num_workers: 16
     wrap: True
     train:
       target: ldm.data.GENS_handler.ISData_Loader_train
@@ -49,8 +47,9 @@ lightning:
   modelcheckpoint:
       every_n_epochs: 200
       save_last: True
-
+      
   trainer:
     benchmark: True
+    # accumulate_grad_batches: 2
     accelerator: ddp
     max_epochs: 30000
