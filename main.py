@@ -749,12 +749,15 @@ if __name__ == "__main__":
         # data
 
         # **********************GENS********************
+
+
+        if opt.batch_size != None:
+            config.data.params.batch_size = opt.batch_size
+
         data = instantiate_from_config(config.data)
         data.prepare_data()
         data.setup()
 
-        # if opt.batch_size != None:
-        #     config.data.params.batch_size = opt.batch_size
 
         # import ldm.data.GENS_handler as DSH
         # Dl_train = DSH.ISData_Loader_train(config.data.params.batch_size)
