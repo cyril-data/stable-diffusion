@@ -38,6 +38,13 @@ else
     q="-t exotic -t night"
 fi
 
+if [ -z "$p" ];
+then
+    pclus=''
+else
+    pclus="-p $p"
+fi
+
 
 if [ -z "$t" ];
 then
@@ -47,6 +54,19 @@ else
 fi
 
 
+
+if [ -z "$r" ];
+then 
+    resume=''
+else
+    cur_time=`date +"%Y-%m-%d_%H-%M"`
+    dir_name="ckpt_${cur_time}"
+    mkdir logs/$dir_name
+    mkdir logs/$dir_name/checkpoints
+    cp $r logs/$dir_name/checkpoints
+    checkpoint="logs/$dir_name/checkpoints/last.ckpt"
+    resume="--resume ${checkpoint}" 
+fi
 
 gpus=$(($g-1))
 gseq=$(seq -s ',' 0 $gpus)
@@ -62,24 +82,8 @@ echo -q $q
 echo -t $stime
 echo
 
-# echo oarsub $q -p $p -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime   "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b --resume '$r' ; sleep infinity"
+# echo oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
 # echo 
 # exit N
 
-
-if [ -z "$p" ];
-then
-    if [ -z "$r" ];
-    then
-        oarsub $q -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr  $stime   "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b ; sleep infinity"
-    else
-        oarsub $q -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b --resume '$r' ; sleep infinity"
-    fi
-else
-    if [ -z "$r" ];
-    then
-        oarsub $q -p $p -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b  ; sleep infinity"
-    else
-        oarsub $q -p $p -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime  "cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b --resume '$r'  ; sleep infinity"
-    fi
-fi
+oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "module load singularity; cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
