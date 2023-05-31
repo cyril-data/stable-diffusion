@@ -36,6 +36,7 @@ then
     q="-q production"
 else
     q="-t exotic -t night"
+    wtime=13
 fi
 
 if [ -z "$p" ];
@@ -86,4 +87,4 @@ echo
 # echo 
 # exit N
 
-oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "module load singularity; cd ~/GENS/FORK_stable-diffusion ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
+oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "cd ~/GENS/FORK_stable-diffusion ; module load singularity ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
