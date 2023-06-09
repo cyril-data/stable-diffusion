@@ -1,29 +1,33 @@
 model:
-  base_learning_rate: .5e-5
+  base_learning_rate: 9.e-06
   target: ldm.models.autoencoder.VQModel
   params:
     embed_dim: 64
-    n_embed: 256
+    n_embed: 1024
     image_key: 0
     ddconfig:
-      double_z: False
-      z_channels: 128
+      double_z: false
+      z_channels: 64
       resolution: 128
       in_channels: 3
       out_ch: 3
       ch: 128
-      ch_mult: [ 1,2,4 ]  # num_down = len(ch_mult)-1
+      ch_mult:
+      - 1
+      - 2
+      - 2
+      - 4
       num_res_blocks: 2
-      attn_resolutions: [16]
+      attn_resolutions:
+      - 16
       dropout: 0.0
-
     lossconfig:
       target: ldm.modules.losses.vqperceptual.VQLPIPSWithDiscriminator
       params:
-        disc_conditional: False
+        disc_conditional: false
         disc_in_channels: 3
-        disc_start: 5000000000000
-        disc_weight: 0.8
+        disc_start: 5000000
+        disc_weight: 0.5
         codebook_weight: 1.0
 
 data:

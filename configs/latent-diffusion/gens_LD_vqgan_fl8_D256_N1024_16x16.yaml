@@ -8,16 +8,16 @@ model:
     log_every_t: 200
     timesteps: 1000
     first_stage_key: 0
-    image_size: 32
-    channels: 64
+    image_size: 16
+    channels: 256
     monitor: val/loss_simple_ema
 
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
-        image_size: 32
-        in_channels: 64
-        out_channels: 64
+        image_size: 16
+        in_channels: 256
+        out_channels: 256
         model_channels: 224
         attention_resolutions:
         # note: this isn\t actually the resolution but
@@ -37,18 +37,19 @@ model:
     first_stage_config:
       target: ldm.models.autoencoder.VQModelInterface
       params:
-        embed_dim: 64
+        embed_dim: 256
         n_embed: 1024
         image_key: 0
-        ckpt_path: models/first_stage_models/gens_vqgan-f4_D256_N1024_a256_32x32x64/913.ckpt
+        ckpt_path: models/first_stage_models/gens_LD_vqgan_fl8_D256_N1024_16x16/553.ckpt
         ddconfig:
           double_z: false
-          z_channels: 64
+          z_channels: 256
           resolution: 128
           in_channels: 3
           out_ch: 3
           ch: 128
           ch_mult:
+          - 1
           - 1
           - 2
           - 4
