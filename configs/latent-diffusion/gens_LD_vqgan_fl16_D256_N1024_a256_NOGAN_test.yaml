@@ -40,7 +40,7 @@ model:
         embed_dim: 256
         n_embed: 1024
         image_key: 0
-        ckpt_path: models/first_stage_models/gens_vqgan-f16/vq-16_nogan.ckpt
+        ckpt_path: logs/2023-05-31T13-07-50_gens_vqgan_fl16_D256_N1024_a256_res128/checkpoints/last.ckpt
         ddconfig:
           double_z: false
           z_channels: 256
@@ -51,7 +51,6 @@ model:
           ch_mult:
           - 1
           - 1
-          - 2
           - 2
           - 4
           num_res_blocks: 2

@@ -60,12 +60,12 @@ if [ -z "$r" ];
 then 
     resume=''
 else
-    cur_time=`date +"%Y-%m-%d_%H-%M"`
-    dir_name="ckpt_${cur_time}"
-    mkdir logs/$dir_name
-    mkdir logs/$dir_name/checkpoints
-    cp $r logs/$dir_name/checkpoints
-    checkpoint="logs/$dir_name/checkpoints/last.ckpt"
+    # cur_time=`date +"%Y-%m-%d_%H-%M"`
+    # dir_name="ckpt_${cur_time}"
+    # mkdir logs/$dir_name
+    # mkdir logs/$dir_name/checkpoints
+    # cp $r logs/$dir_name/checkpoints
+    # checkpoint="logs/$dir_name/checkpoints/last.ckpt"
     resume="--resume ${checkpoint}" 
 fi
 
@@ -87,4 +87,6 @@ echo
 # echo 
 # exit N
 
-oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime "cd ~/GENS/FORK_stable-diffusion ; module load singularity ; $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
+# ". /etc/profile && module load singularity && mpirun -hostfile \$OAR_NODE_FILE --mca orte_rsh_agent oarsh -- `which singularity` exec my_mpi_image.sif /opt/mpitest"
+
+oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime ". /etc/profile ; module load singularity ; cd ~/GENS/FORK_stable-diffusion ;  `which singularity` exec --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
