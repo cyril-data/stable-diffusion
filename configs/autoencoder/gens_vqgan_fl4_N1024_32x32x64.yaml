@@ -2,13 +2,13 @@ model:
   base_learning_rate: 9.e-06
   target: ldm.models.autoencoder.VQModel
   params:
-    embed_dim: 256
-    n_embed: 1024
-    image_key: 0
+    embed_dim: 64 # must be = to z_channels
+    n_embed: 1024 # number of the quantize vectors
+    image_key: 0 # image_key: 0  means in batch, images is in the first columns of batch 
     ddconfig:
       double_z: false
-      z_channels: 64
-      resolution: 128
+      z_channels: 64 # must be = to embed_dim
+      resolution: 128 # resolution to imput image
       in_channels: 3
       out_ch: 3
       ch: 128

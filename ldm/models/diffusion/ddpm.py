@@ -332,6 +332,8 @@ class DDPM(pl.LightningModule):
 
         loss = self.get_loss(model_out, target, mean=False).mean(dim=[1, 2, 3])
 
+
+
         log_prefix = 'train' if self.training else 'val'
 
         loss_dict.update({f'{log_prefix}/loss_simple': loss.mean()})
@@ -1112,7 +1114,6 @@ class LatentDiffusion(DDPM):
         loss_simple = self.get_loss(
             model_output, target, mean=False).mean([1, 2, 3])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
-
         logvar_t = self.logvar[t].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
@@ -1124,9 +1125,12 @@ class LatentDiffusion(DDPM):
 
         loss_vlb = self.get_loss(model_output, target,
                                  mean=False).mean(dim=(1, 2, 3))
+        
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
+
         loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
         loss += (self.original_elbo_weight * loss_vlb)
+
         loss_dict.update({f'{prefix}/loss': loss})
 
         return loss, loss_dict
@@ -1319,7 +1323,7 @@ class LatentDiffusion(DDPM):
                mask=None, x0=None, shape=None, **kwargs):
         if shape is None:
             shape = (batch_size, self.channels,
-                     self.image_size, self.image_size)
+                     self.image_size, self.imagddime_size)
         if cond is not None:
             if isinstance(cond, dict):
                 cond = {key: cond[key][:batch_size] if not isinstance(cond[key], list) else

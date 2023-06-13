@@ -1,8 +1,8 @@
 model:
-  base_learning_rate: 9.e-06
+  base_learning_rate: 1.e-04
   target: ldm.models.autoencoder.VQModel
   params:
-    embed_dim: 256
+    embed_dim: 256 # must be = to z_channels
     n_embed: 1024
     image_key: 0
     ddconfig:

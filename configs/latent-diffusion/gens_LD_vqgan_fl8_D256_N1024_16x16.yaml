@@ -1,8 +1,8 @@
 model:
-  base_learning_rate: 1.e-04
+  base_learning_rate: 1.e-06
   target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
-    linear_start: 0.0015
+    linear_start: 0.0001
     linear_end: 0.0195
     num_timesteps_cond: 1
     log_every_t: 200
@@ -40,7 +40,7 @@ model:
         embed_dim: 256
         n_embed: 1024
         image_key: 0
-        ckpt_path: models/first_stage_models/gens_LD_vqgan_fl8_D256_N1024_16x16/553.ckpt
+        ckpt_path: models/first_stage_models/gens_LD_vqgan_fl8_D256_N1024_16x16/878.ckpt
         ddconfig:
           double_z: false
           z_channels: 256
@@ -64,7 +64,8 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 2
+    batch_size: 64
+    num_workers: 128
     wrap: True
     train:
       target: ldm.data.GENS_handler.ISData_Loader_train
@@ -88,3 +89,4 @@ lightning:
     benchmark: True
     accelerator: ddp
     max_epochs: 30000
+    strategy: "ddp_find_unused_parameters_false"

@@ -94,4 +94,4 @@ echo
 
 # ". /etc/profile && module load singularity && mpirun -hostfile \$OAR_NODE_FILE --mca orte_rsh_agent oarsh -- `which singularity` exec my_mpi_image.sif /opt/mpitest"
 
-oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime ". /etc/profile ; module load singularity ; cd ~/GENS/FORK_stable-diffusion ;   $(which singularity) run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"
+oarsub $q $pclus -l host=1/gpu=$g,walltime=$wtime --notify mail:cyril.regan@loria.fr $stime ". /etc/profile && module load singularity && cd ~/GENS/FORK_stable-diffusion && singularity run --nv ../stable_lning.sif /conda/bin/conda run -n ldm --no-capture-output python main.py --base $y -t --gpus $gseq --batch_size $b $resume ; sleep infinity"

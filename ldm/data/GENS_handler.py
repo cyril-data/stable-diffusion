@@ -230,13 +230,15 @@ class ISData_Loader_train(ISDataset):
                  crop_indexes=[78, 206, 55, 183],
                  path="data/train_IS_1_1.0_0_0_0_0_0_256_done_red/",
                  shuf=False,
-                 add_coords=False):
+                 add_coords=False, 
+                 num_workers=0):
 
         super().__init__(path, 'IS_method_labels.csv',
                          var_indexes, crop_indexes)
 
         self.path = path
         self.batch = batch_size
+        if num_workers == 0 : num_workers=self.batch*2
         self.shuf = shuf  # shuffle performed once per epoch
         self.VI = var_indexes
         self.CI = crop_indexes

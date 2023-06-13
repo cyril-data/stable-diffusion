@@ -151,6 +151,12 @@ def get_parser(**parser_kwargs):
         default=None,
         help="overwrite batch_size",
     )
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=0,
+        help="overwrite num_workers",
+    )
     return parser
 
 
@@ -655,15 +661,22 @@ if __name__ == "__main__":
                 "save_last": True,
             }
         }
+    
         if hasattr(model, "monitor"):
             print(f"Monitoring {model.monitor} as checkpoint metric.")
             default_modelckpt_cfg["params"]["monitor"] = model.monitor
             default_modelckpt_cfg["params"]["save_top_k"] = 3
 
         if "modelcheckpoint" in lightning_config:
+            print("\n" * 4, "*"*30, "\n", "modelcheckpoint in lightning_config")
             modelckpt_cfg = lightning_config.modelcheckpoint
+            print("modelckpt_cfg", modelckpt_cfg)
         else:
+            print("\n" * 4, "*"*30, "\n", "modelcheckpoint not in lightning_config")
             modelckpt_cfg = OmegaConf.create()
+
+        print("modelckpt_cfg avant Merge", modelckpt_cfg)
+
         modelckpt_cfg = OmegaConf.merge(default_modelckpt_cfg, modelckpt_cfg)
         print(f"Merged modelckpt-cfg: \n{modelckpt_cfg}")
         if version.parse(pl.__version__) < version.parse('1.4.0'):
@@ -753,7 +766,11 @@ if __name__ == "__main__":
 
         if opt.batch_size != None:
             config.data.params.batch_size = opt.batch_size
-
+        if opt.num_workers == 0:
+            config.data.params.num_workers = config.data.params.batch_size * 2
+        else : 
+            config.data.params.num_workers = opt.num_workers
+            
         data = instantiate_from_config(config.data)
         data.prepare_data()
         data.setup()
