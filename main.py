@@ -36,7 +36,7 @@ def makedirs_pathlib(path, mode=0o777, exist_ok=False):
         p.mkdir(mode=mode, exist_ok=exist_ok)
     except FileNotFoundError as e:
         print(f"WARNING : {e} \n=> Nested directory creation activates")
-        p.mkdir(mode=mode, parents=True, exist_ok=exist_ok)
+        p.mkdir(parents=True, exist_ok=exist_ok)
     except FileExistsError as e:
         print(f"WARNING : {e} \n=> the nested directory already exist")
         pass
@@ -298,21 +298,21 @@ class SetupCallback(Callback):
 
     def on_pretrain_routine_start(self, trainer, pl_module):
         if trainer.global_rank == 0:
+            print("\n\n********************")
             # Create logdirs and save configs
             os.makedirs(self.logdir, exist_ok=True)
+            print("self.logdir", self.logdir, Path(self.logdir).is_dir())
             # path_temp = self.logdir
             # if not os.path.exists(path_temp) :
             #     os.makedirs(path_temp)
 
             os.makedirs(self.ckptdir, exist_ok=True)
+            print("self.ckptdir", self.ckptdir, Path(self.ckptdir).is_dir())
             # path_temp = self.ckptdir
             # if not os.path.exists(path_temp) :
             #     os.makedirs(path_temp)
 
             os.makedirs(self.cfgdir, exist_ok=True)
-            print("\n\n********************")
-            print("self.logdir", self.logdir, Path(self.logdir).is_dir())
-            print("self.ckptdir", self.ckptdir, Path(self.ckptdir).is_dir())
             print("self.cfgdir", self.cfgdir, Path(self.cfgdir).is_dir())
 
             print("\n\n********************")
@@ -854,6 +854,7 @@ if __name__ == "__main__":
         # run
         if opt.train:
             try:
+                print("*"*30, "\n","*"*30,"\nstart training fit")
                 trainer.fit(model, data)
 
             except Exception:
