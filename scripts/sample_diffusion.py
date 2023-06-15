@@ -1,4 +1,9 @@
-import argparse, os, sys, glob, datetime, yaml
+import argparse
+import os
+import sys
+import glob
+import datetime
+import yaml
 import torch
 import time
 import numpy as np
@@ -10,7 +15,9 @@ from PIL import Image
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.util import instantiate_from_config
 
-rescale = lambda x: (x + 1.) / 2.
+
+def rescale(x): return (x + 1.) / 2.
+
 
 def custom_to_pil(x):
     x = x.detach().cpu()
@@ -55,7 +62,6 @@ def convsample(model, shape, return_intermediates=True,
                verbose=True,
                make_prog_row=False):
 
-
     if not make_prog_row:
         return model.p_sample_loop(None, shape,
                                    return_intermediates=return_intermediates, verbose=verbose)
@@ -71,13 +77,13 @@ def convsample_ddim(model, steps, shape, eta=1.0
     ddim = DDIMSampler(model)
     bs = shape[0]
     shape = shape[1:]
-    samples, intermediates = ddim.sample(steps, batch_size=bs, shape=shape, eta=eta, verbose=False,)
+    samples, intermediates = ddim.sample(
+        steps, batch_size=bs, shape=shape, eta=eta, verbose=False,)
     return samples, intermediates
 
 
 @torch.no_grad()
 def make_convolutional_sample(model, batch_size, vanilla=False, custom_steps=None, eta=1.0,):
-
 
     log = dict()
 
@@ -105,15 +111,17 @@ def make_convolutional_sample(model, batch_size, vanilla=False, custom_steps=Non
     print(f'Throughput for this batch: {log["throughput"]}')
     return log
 
+
 def run(model, logdir, batch_size=50, vanilla=False, custom_steps=None, eta=None, n_samples=50000, nplog=None):
     if vanilla:
-        print(f'Using Vanilla DDPM sampling with {model.num_timesteps} sampling steps.')
+        print(
+            f'Using Vanilla DDPM sampling with {model.num_timesteps} sampling steps.')
     else:
-        print(f'Using DDIM sampling with {custom_steps} sampling steps and eta={eta}')
-
+        print(
+            f'Using DDIM sampling with {custom_steps} sampling steps and eta={eta}')
 
     tstart = time.time()
-    n_saved = len(glob.glob(os.path.join(logdir,'*.png')))-1
+    n_saved = len(glob.glob(os.path.join(logdir, '*.png')))-1
     # path = logdir
     if model.cond_stage_model is None:
         all_images = []
@@ -135,9 +143,11 @@ def run(model, logdir, batch_size=50, vanilla=False, custom_steps=None, eta=None
         np.savez(nppath, all_img)
 
     else:
-       raise NotImplementedError('Currently only sampling for unconditional models supported.')
+        raise NotImplementedError(
+            'Currently only sampling for unconditional models supported.')
 
-    print(f"sampling of {n_saved} images finished in {(time.time() - tstart) / 60.:.2f} minutes.")
+    print(
+        f"sampling of {n_saved} images finished in {(time.time() - tstart) / 60.:.2f} minutes.")
 
 
 def save_logs(logs, path, n_saved=0, key="sample", np_path=None):
@@ -153,7 +163,8 @@ def save_logs(logs, path, n_saved=0, key="sample", np_path=None):
             else:
                 npbatch = custom_to_np(batch)
                 shape_str = "x".join([str(x) for x in npbatch.shape])
-                nppath = os.path.join(np_path, f"{n_saved}-{shape_str}-samples.npz")
+                nppath = os.path.join(
+                    np_path, f"{n_saved}-{shape_str}-samples.npz")
                 np.savez(nppath, npbatch)
                 n_saved += npbatch.shape[0]
     return n_saved
@@ -168,6 +179,12 @@ def get_parser():
         nargs="?",
         help="load from logdir or checkpoint in logdir",
     )
+    parser.add_argument(
+        "-g",
+        "--gpus",
+        default=True,
+    )
+
     parser.add_argument(
         "-n",
         "--n_samples",
@@ -214,12 +231,22 @@ def get_parser():
         help="the bs",
         default=10
     )
+    parser.add_argument(
+        "-b",
+        "--base",
+        nargs="*",
+        metavar="base_config.yaml",
+        help="paths to base configs. Loaded from left-to-right. "
+             "Parameters can be overwritten or added with command-line options of the form `--key value`.",
+        default=list(),
+    )
+
     return parser
 
 
 def load_model_from_config(config, sd):
     model = instantiate_from_config(config)
-    model.load_state_dict(sd,strict=False)
+    model.load_state_dict(sd, strict=False)
     model.cuda()
     model.eval()
     return model
@@ -266,24 +293,32 @@ if __name__ == "__main__":
         logdir = opt.resume.rstrip("/")
         ckpt = os.path.join(logdir, "model.ckpt")
 
-    base_configs = sorted(glob.glob(os.path.join(logdir, "config.yaml")))
-    opt.base = base_configs
+    print("opt.base", opt.base)
+    if len(opt.base) == 0:
+        base_configs = sorted(glob.glob(os.path.join(logdir, "config.yaml")))
+        print("base_configs", base_configs)
+        opt.base = base_configs
 
     configs = [OmegaConf.load(cfg) for cfg in opt.base]
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
 
-    gpu = True
+    gpu = opt.gpus
     eval_mode = True
 
     if opt.logdir != "none":
         locallog = logdir.split(os.sep)[-1]
-        if locallog == "": locallog = logdir.split(os.sep)[-2]
-        print(f"Switching logdir from '{logdir}' to '{os.path.join(opt.logdir, locallog)}'")
+        if locallog == "":
+            locallog = logdir.split(os.sep)[-2]
+        print(
+            f"Switching logdir from '{logdir}' to '{os.path.join(opt.logdir, locallog)}'")
         logdir = os.path.join(opt.logdir, locallog)
 
     print(config)
-
+    print("ckpt", ckpt)
+    print("config", config)
+    print("gpu", gpu)
+    print("eval_mode", eval_mode)
     model, global_step = load_model(config, ckpt, gpu, eval_mode)
     print(f"global step: {global_step}")
     print(75 * "=")
@@ -304,7 +339,6 @@ if __name__ == "__main__":
     with open(sampling_file, 'w') as f:
         yaml.dump(sampling_conf, f, default_flow_style=False)
     print(sampling_conf)
-
 
     run(model, imglogdir, eta=opt.eta,
         vanilla=opt.vanilla_sample,  n_samples=opt.n_samples, custom_steps=opt.custom_steps,
