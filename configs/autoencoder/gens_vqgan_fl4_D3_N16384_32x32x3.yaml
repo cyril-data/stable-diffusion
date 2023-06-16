@@ -51,7 +51,7 @@ lightning:
 
   modelcheckpoint:
     params:
-      every_n_epochs: 100
+      every_n_epochs: 50
       save_last: True
       save_top_k: 10
 

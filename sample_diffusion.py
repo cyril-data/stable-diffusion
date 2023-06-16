@@ -15,9 +15,18 @@ from PIL import Image
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.util import instantiate_from_config
 
+import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
 
 def rescale(x): return (x + 1.) / 2.
 
+def save_gray_image(grid, outfile, colormap):
+    plt.imshow(grid, cmap=colormap)
+    plt.colorbar()
+    plt.savefig(outfile)
+    # np.save(os.path.split(
+    #     outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
+    plt.close()
 
 def custom_to_pil(x):
     x = x.detach().cpu()
@@ -112,7 +121,10 @@ def make_convolutional_sample(model, batch_size, vanilla=False, custom_steps=Non
     return log
 
 
-def run(model, logdir, batch_size=50, vanilla=False, custom_steps=None, eta=None, n_samples=50000, nplog=None):
+def run(
+    model, logdir, batch_size=50, vanilla=False, custom_steps=None, 
+    eta=None, n_samples=50000, nplog=None, gens=False, means=None, stds=None):
+
     if vanilla:
         print(
             f'Using Vanilla DDPM sampling with {model.num_timesteps} sampling steps.')
@@ -131,7 +143,8 @@ def run(model, logdir, batch_size=50, vanilla=False, custom_steps=None, eta=None
             logs = make_convolutional_sample(model, batch_size=batch_size,
                                              vanilla=vanilla, custom_steps=custom_steps,
                                              eta=eta)
-            n_saved = save_logs(logs, logdir, n_saved=n_saved, key="sample")
+            n_saved = save_logs(
+                logs, logdir, n_saved=n_saved, key="sample", gens=gens, means=means, stds=stds)
             all_images.extend([custom_to_np(logs["sample"])])
             if n_saved >= n_samples:
                 print(f'Finish after generating {n_saved} samples')
@@ -150,15 +163,41 @@ def run(model, logdir, batch_size=50, vanilla=False, custom_steps=None, eta=None
         f"sampling of {n_saved} images finished in {(time.time() - tstart) / 60.:.2f} minutes.")
 
 
-def save_logs(logs, path, n_saved=0, key="sample", np_path=None):
+def save_logs(logs, path, n_saved=0, key="sample", np_path=None, gens=False, means=None, stds=None):
     for k in logs:
         if k == key:
             batch = logs[key]
             if np_path is None:
                 for x in batch:
-                    img = custom_to_pil(x)
-                    imgpath = os.path.join(path, f"{key}_{n_saved:06}.png")
-                    img.save(imgpath)
+                    if gens :
+                        invTrans = transforms.Compose([
+                            transforms.Normalize(
+                                mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
+                            transforms.Normalize(
+                                mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
+                            transforms.Normalize(
+                                mean=[0.] * 3, std=[1 / el for el in stds]),
+                            transforms.Normalize(
+                                mean=[-el for el in means], std=[1.] * 3),
+                        ])
+                        grid = invTrans(x)
+                        grid = torch.transpose(grid, 0, 2)
+                        grid = torch.fliplr(grid)
+                        grid = torch.rot90(grid, 2)
+                        grid = grid.detach().cpu()
+                        grid = grid.numpy()
+
+                        save_gray_image(grid[:, :, 0], os.path.join(path, f"u_{n_saved:06}.png"), 'viridis')
+                        save_gray_image(grid[:, :, 1], os.path.join(path, f"v_{n_saved:06}.png"), 'viridis')
+                        save_gray_image(grid[:, :, 2], os.path.join(path, f"t2m_{n_saved:06}.png"), 'RdBu_r')
+                    else : 
+                        img = custom_to_pil(x)
+                        print("save images path :", path)
+                        print("save images key :", key)
+                        print(f"save images n_saved:06 :  {n_saved:06}")
+                        print(f" key + n_saved :      {key}_{n_saved:06}.png")
+                        imgpath = os.path.join(path, f"{key}_{n_saved:06}.png")
+                        img.save(imgpath)
                     n_saved += 1
             else:
                 npbatch = custom_to_np(batch)
@@ -227,6 +266,11 @@ def get_parser():
         default=10
     )
     parser.add_argument(
+        "--gpus",
+        type=int,
+        default=0
+    )
+    parser.add_argument(
         "-b",
         "--base",
         nargs="*",
@@ -235,28 +279,40 @@ def get_parser():
              "Parameters can be overwritten or added with command-line options of the form `--key value`.",
         default=list(),
     )
+    parser.add_argument(
+        "-g",
+        "--gens",
+        help="param to save a images of type gens (t2m, u, v) ",
+        default=True,
+    )
 
     return parser
 
 
-def load_model_from_config(config, sd):
+def load_model_from_config(config, sd, gpus=0):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
-    model.cuda()
+    device=f'cuda:{gpus}'
+    model.to(torch.device(device))
     model.eval()
     return model
 
 
-def load_model(config, ckpt, gpu, eval_mode):
+def load_model(config, ckpt, eval_mode, gpus=0):
     if ckpt:
         print(f"Loading model from {ckpt}")
-        pl_sd = torch.load(ckpt, map_location="cpu")
+        if gpus==False : 
+            pl_sd = torch.load(ckpt, map_location="cpu")
+        else : 
+            pl_sd = torch.load(ckpt, map_location=f'cuda:{gpus}')
+
         global_step = pl_sd["global_step"]
     else:
         pl_sd = {"state_dict": None}
         global_step = None
     model = load_model_from_config(config.model,
-                                   pl_sd["state_dict"])
+                                   pl_sd["state_dict"], 
+                                   gpus=gpus)
 
     return model, global_step
 
@@ -298,8 +354,9 @@ if __name__ == "__main__":
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
 
-    gpu = True
+    gpus = opt.gpus
     eval_mode = True
+    gens=opt.gens
 
     if opt.logdir != "none":
         locallog = logdir.split(os.sep)[-1]
@@ -309,12 +366,22 @@ if __name__ == "__main__":
             f"Switching logdir from '{logdir}' to '{os.path.join(opt.logdir, locallog)}'")
         logdir = os.path.join(opt.logdir, locallog)
 
-    print(config)
+    # data
+
+    Means = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/"+'mean_with_orog.npy')[[1, 2, 3]]
+    Maxs = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/"+'max_with_orog.npy')[[1, 2, 3]]
+    means = list(tuple(Means))
+    stds = list(tuple((1.0/0.95)*(Maxs)))
+
+
+
+    print("means", means)
+    print("stds", stds)
     print("ckpt", ckpt)
     print("config", config)
-    print("gpu", gpu)
+    print("gpus", gpus)
     print("eval_mode", eval_mode)
-    model, global_step = load_model(config, ckpt, gpu, eval_mode)
+    model, global_step = load_model(config, ckpt, eval_mode, gpus=gpus)
     print(f"global step: {global_step}")
     print(75 * "=")
     print("logging to:")
@@ -337,6 +404,6 @@ if __name__ == "__main__":
 
     run(model, imglogdir, eta=opt.eta,
         vanilla=opt.vanilla_sample,  n_samples=opt.n_samples, custom_steps=opt.custom_steps,
-        batch_size=opt.batch_size, nplog=numpylogdir)
+        batch_size=opt.batch_size, nplog=numpylogdir,gens=gens, means=means, stds=stds)
 
     print("done.")
