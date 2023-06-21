@@ -1,26 +1,30 @@
-FROM ubuntu:22.04
+FROM nvidia/cuda:11.3.0-base-ubuntu20.04
 
-ENV CONDA_SRC=/conda
+# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
 
-# Install conda
+# RUN wget -qO- https://get.docker.com/gpg | sudo apt-key add -
 USER root
 
 ENV TZ=Europe
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN mkdir -p ${CONDA_SRC} && \ 
-    apt-get update && \ 
-    apt-get install -y wget && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${CONDA_SRC}/miniconda.sh && \
-    bash ${CONDA_SRC}/miniconda.sh -b -u -p ${CONDA_SRC} && \
-    rm -rf ${CONDA_SRC}/miniconda.sh  && \
-    ${CONDA_SRC}/bin/conda init bash  && \
-    ${CONDA_SRC}/bin/conda init zsh && \
-    ${CONDA_SRC}/bin/conda clean -ay
+RUN apt-get update && apt-get install -y wget  \
+    && apt-get install -y git-all \
+    && apt-get install python3.8 -y \
+    && apt-get install python3.8-distutils  -y  \
+    && ln -s /usr/bin/python3.8 /usr/bin/python
+# RUN apt-get update&& \
+#     apt-get install -y software-properties-common && \
+#     add-apt-repository -y ppa:deadsnakes/ppa && \
+#     apt-get update && \ apt-get install python3.8 -y  
 
-RUN apt-get update && apt-get install -y git-all
+RUN python --version
 
-# Create the environment:
-COPY environment.yaml setup.py .
-     
-RUN ${CONDA_SRC}/bin/conda env create -f environment.yaml
+
+RUN wget https://bootstrap.pypa.io/get-pip.py
+
+RUN python get-pip.py
+
+COPY requirements.txt /root/requirements.txt
+
+RUN python -m pip install -r /root/requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org

@@ -1,0 +1,7 @@
+FROM stylegan3_horovod
+
+COPY requirements.txt /root/requirements.txt
+
+RUN python --version
+
+RUN pip install -r /root/requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org

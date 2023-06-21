@@ -1,0 +1,4 @@
+FROM stable_style
+
+RUN pip install -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
+RUN pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip

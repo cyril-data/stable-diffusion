@@ -48,8 +48,9 @@ lightning:
       params:
         batch_frequency: 1000
         max_images: 8
-        increase_log_steps: True
-
+        increase_log_steps: True        
+        log_images_kwargs:
+          uvt: True
 
   modelcheckpoint:
     params:

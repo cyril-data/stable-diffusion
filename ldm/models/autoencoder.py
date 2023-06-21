@@ -10,6 +10,42 @@ from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
 
 from ldm.util import instantiate_from_config
 
+import os
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
+
+
+def save_gray_image(grid, outfile, colormap):
+    plt.imshow(grid, cmap=colormap)
+    plt.colorbar()
+    plt.savefig(outfile)
+    np.save(os.path.split(
+        outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
+    plt.close()
+
+
+def uvt_transform(image, stds, means):
+
+    invTrans = transforms.Compose([
+        transforms.Normalize(
+            mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
+        transforms.Normalize(
+            mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
+        transforms.Normalize(
+            mean=[0.] * 3, std=[1 / el for el in stds]),
+        transforms.Normalize(
+            mean=[-el for el in means], std=[1.] * 3),
+    ])
+    grid = invTrans(image)
+    grid = torch.transpose(grid, 0, 2)
+    grid = torch.fliplr(grid)
+    grid = torch.rot90(grid, 2)
+    grid = grid.numpy()
+
+    return grid
+
 
 class VQModel(pl.LightningModule):
     def __init__(self,
@@ -251,7 +287,7 @@ class VQModel(pl.LightningModule):
     def get_last_layer(self):
         return self.decoder.conv_out.weight
 
-    def log_images(self, batch, only_inputs=False, only_samples=False, plot_ema=False, **kwargs):
+    def log_images(self, batch, only_inputs=False, only_samples=False, plot_ema=False, uvt=True, **kwargs):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
@@ -438,20 +474,29 @@ class AutoencoderKL(pl.LightningModule):
         return self.decoder.conv_out.weight
 
     @torch.no_grad()
-    def log_images(self, batch, only_inputs=False, only_samples=False, **kwargs):
+    def log_images(self, batch, only_inputs=False, only_samples=False, uvt=True, **kwargs):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
+
         if not only_inputs:
             xrec, posterior = self(x)
-            if x.shape[1] > 3:
-                # colorize with random projection
-                assert xrec.shape[1] > 3
-                x = self.to_rgb(x)
-                xrec = self.to_rgb(xrec)
-            log["samples"] = self.decode(torch.randn_like(posterior.sample()))
-            if not only_samples:
+            if uvt:
+                x = uvt_transform(x, stds, means)
+                xrec = uvt_transform(xrec, stds, means)
                 log["reconstructions"] = xrec
+                log["inputs"] = x
+            else:
+                if x.shape[1] > 3:
+                    # colorize with random projection
+                    assert xrec.shape[1] > 3
+                    x = self.to_rgb(x)
+                    xrec = self.to_rgb(xrec)
+                log["samples"] = self.decode(
+                    torch.randn_like(posterior.sample()))
+                if not only_samples:
+                    log["reconstructions"] = xrec
+
         if not only_samples:
             log["inputs"] = x
         return log
