@@ -34,10 +34,12 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 2
+    batch_size: 1
     wrap: True
     train:
       target: ldm.data.GENS_handler.ISData_Loader_train
+      params:
+        path: "data/test_IS_1_1.0_0_0_0_0_0_256_done_red/"
     validation:
       target: ldm.data.GENS_handler.ISData_Loader_val
 

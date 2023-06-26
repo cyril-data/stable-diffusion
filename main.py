@@ -8,7 +8,7 @@ from pytorch_lightning import seed_everything
 from PIL import Image
 from functools import partial
 from torch.utils.data import random_split, DataLoader, Dataset, Subset
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, open_dict
 from packaging import version
 import pytorch_lightning as pl
 import torchvision
@@ -362,7 +362,7 @@ class SetupCallback(Callback):
 
 class ImageLogger(Callback):
     def __init__(self, batch_frequency, max_images, clamp=True, increase_log_steps=True,
-                 rescale=True, disabled=False, log_on_batch_idx=False, log_first_step=False,
+                 rescale=False, disabled=False, log_on_batch_idx=False, log_first_step=False,
                  log_images_kwargs=None):
         super().__init__()
         self.rescale = rescale
@@ -378,6 +378,7 @@ class ImageLogger(Callback):
         self.clamp = clamp
         self.disabled = disabled
         self.log_on_batch_idx = log_on_batch_idx
+
         self.log_images_kwargs = log_images_kwargs if log_images_kwargs else {}
         self.log_first_step = log_first_step
 
@@ -385,7 +386,9 @@ class ImageLogger(Callback):
     def _testtube(self, pl_module, images, batch_idx, split):
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
-            grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
+
+            if self.rescale:
+                grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
 
             tag = f"{split}/{k}"
             pl_module.logger.experiment.add_image(
@@ -398,6 +401,7 @@ class ImageLogger(Callback):
         root = os.path.join(save_dir, "images", split)
         for k in images:
             grid = torchvision.utils.make_grid(images[k], nrow=4)
+
             if self.rescale:
                 grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
             grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
@@ -434,7 +438,9 @@ class ImageLogger(Callback):
 
             for k in images:
                 N = min(images[k].shape[0], self.max_images)
+
                 images[k] = images[k][:N]
+
                 if isinstance(images[k], torch.Tensor):
                     images[k] = images[k].detach().cpu()
                     if self.clamp:
@@ -661,7 +667,7 @@ if __name__ == "__main__":
                 "save_last": True,
             }
         }
-    
+
         if hasattr(model, "monitor"):
             print(f"Monitoring {model.monitor} as checkpoint metric.")
             default_modelckpt_cfg["params"]["monitor"] = model.monitor
@@ -672,7 +678,8 @@ if __name__ == "__main__":
             modelckpt_cfg = lightning_config.modelcheckpoint
             print("modelckpt_cfg", modelckpt_cfg)
         else:
-            print("\n" * 4, "*"*30, "\n", "modelcheckpoint not in lightning_config")
+            print("\n" * 4, "*"*30, "\n",
+                  "modelcheckpoint not in lightning_config")
             modelckpt_cfg = OmegaConf.create()
 
         print("modelckpt_cfg avant Merge", modelckpt_cfg)
@@ -763,50 +770,26 @@ if __name__ == "__main__":
 
         # **********************GENS********************
 
-
         if opt.batch_size != None:
             config.data.params.batch_size = opt.batch_size
         if opt.num_workers == 0:
             config.data.params.num_workers = config.data.params.batch_size * 2
-        else : 
+        else:
             config.data.params.num_workers = opt.num_workers
-            
+
         data = instantiate_from_config(config.data)
         data.prepare_data()
         data.setup()
 
-
-        # import ldm.data.GENS_handler as DSH
-        # Dl_train = DSH.ISData_Loader_train(config.data.params.batch_size)
-        # data, dataset = Dl_train.loader()
-        # # split the train set into two
-        # seed = torch.Generator().manual_seed(42)
-        # train_set, valid_set = random_split(
-        #     dataset, [train_set_size := 9001, valid_set_size := 1000], generator=seed)
-        # print(f"\n\n ******** train_set : {len(train_set)} **********")
-        # print(f"\n\n ******** valid_set : {len(valid_set)} **********")
-        # train_loader = DataLoader(
-        #     train_set,
-        #     batch_size=config.data.params.batch_size,
-        #     num_workers=config.data.params.batch_size * 2,
-        #     shuffle=True)
-        # valid_loader = DataLoader(valid_set,
-        #                           batch_size=config.data.params.batch_size,
-        #                           num_workers=config.data.params.batch_size * 2,
-        #                           shuffle=True)
-
-        # # **********************stable********************
-        # data = instantiate_from_config(config.data)
-        # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
-        # calling these ourselves should not be necessary but it is.
-        # lightning still takes care of proper multiprocessing though
-        # data.prepare_data()
-        # data.setup()
-        # print("#### Data #####", dir(data.datasets["train"]["data"]))
-        # for k in data.datasets:
-
-        #     print(
-        #         f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
+        # add means and stds in image callbacks to print image in format uvt
+        means, stds = data.datasets["train"].data.norm_info()
+        OmegaConf.set_struct(
+            trainer_kwargs["callbacks"][1].log_images_kwargs, True)
+        with open_dict(trainer_kwargs["callbacks"][1].log_images_kwargs):
+            trainer_kwargs["callbacks"][1].log_images_kwargs["means"] = [np.float32(
+                i).item() for i in means]
+            trainer_kwargs["callbacks"][1].log_images_kwargs["stds"] = [np.float32(
+                i).item() for i in stds]
 
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
@@ -854,7 +837,7 @@ if __name__ == "__main__":
         # run
         if opt.train:
             try:
-                print("*"*30, "\n","*"*30,"\nstart training fit")
+                print("*"*30, "\n", "*"*30, "\nstart training fit")
                 trainer.fit(model, data)
 
             except Exception:

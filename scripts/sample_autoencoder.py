@@ -296,11 +296,18 @@ if __name__ == "__main__":
                         transforms.Normalize(
                             mean=[-el for el in means], std=[1.] * 3),
                     ])
+                    print("image transform sample ", image.shape)
+                    print("image transform means ", type(means), means)
+                    print("image transform stds ", type(stds), stds)
+
                     grid = invTrans(image)
+                    print("grid sample", grid.shape)
+
                     grid = torch.transpose(grid, 0, 2)
                     grid = torch.fliplr(grid)
                     grid = torch.rot90(grid, 2)
                     grid = grid.numpy()
+                    print("grid", grid.shape)
 
                     filename = f"{k}-{batch_ndx}-{i}.png"
                     path = os.path.join(opt.logdir, filename)

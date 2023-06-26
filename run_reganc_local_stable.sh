@@ -2,7 +2,7 @@
 
 set -eu
 
-CWD=stable_style_2
+CWD=stable_simple
 SCRIPTDIR=/home/cregan/Documents/CODE/Projets/4_GENS/FORK_stable-diffusion
 
 docker run --rm --gpus=all \

@@ -28,3 +28,8 @@ RUN python get-pip.py
 COPY requirements.txt /root/requirements.txt
 
 RUN python -m pip install -r /root/requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
+
+RUN python -m pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip
+
+RUN python -m pip install -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
+RUN python -m pip install -e .

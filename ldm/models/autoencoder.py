@@ -15,15 +15,50 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
+import matplotlib.image as mpimg
 
 
-def save_gray_image(grid, outfile, colormap):
-    plt.imshow(grid, cmap=colormap)
-    plt.colorbar()
-    plt.savefig(outfile)
-    np.save(os.path.split(
-        outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
-    plt.close()
+def save_gray_image(grids, colormap, stds, means):
+    grids_u = []
+    grids_v = []
+    grids_t = []
+    for grid in grids:
+
+        grid = uvt_transform(grid, stds, means)
+
+        plt.subplot(321)
+        grid_u = plt.imshow(grid[:, :, 0], cmap=colormap[0])
+        plt.subplot(323)
+        grid_v = plt.imshow(grid[:, :, 1], cmap=colormap[1])
+        plt.subplot(325)
+        grid_t = plt.imshow(grid[:, :, 2], cmap=colormap[2])
+
+        grid_u = grid_u.make_image(renderer=None, unsampled=True)[0]
+        grid_v = grid_v.make_image(renderer=None, unsampled=True)[0]
+        grid_t = grid_t.make_image(renderer=None, unsampled=True)[0]
+
+        grid_u = grid_u[:, :, :3]
+        grid_v = grid_v[:, :, :3]
+        grid_t = grid_t[:, :, :3]
+
+        # plt.subplot(322)
+        # griiid_u = plt.imshow(grid_u)
+        # plt.subplot(324)
+        # griiid_v = plt.imshow(grid_v)
+        # plt.subplot(326)
+        # griiid_t = plt.imshow(grid_t)
+        # plt.show()
+
+        # plt.colorbar()
+        grids_u.append(np.transpose(grid_u, axes=[2, 0, 1]))
+        grids_v.append(np.transpose(grid_v, axes=[2, 0, 1]))
+        grids_t.append(np.transpose(grid_t, axes=[2, 0, 1]))
+
+    grids_u = np.array(grids_u).astype(np.float32)/np.max(grids_u)
+    grids_v = np.array(grids_v).astype(np.float32)/np.max(grids_v)
+    grids_t = np.array(grids_t).astype(np.float32)/np.max(grids_t)
+
+    return torch.from_numpy(grids_u), torch.from_numpy(grids_v), torch.from_numpy(grids_t)
 
 
 def uvt_transform(image, stds, means):
@@ -38,11 +73,12 @@ def uvt_transform(image, stds, means):
         transforms.Normalize(
             mean=[-el for el in means], std=[1.] * 3),
     ])
+
     grid = invTrans(image)
     grid = torch.transpose(grid, 0, 2)
     grid = torch.fliplr(grid)
     grid = torch.rot90(grid, 2)
-    grid = grid.numpy()
+    grid = grid.detach().cpu().numpy()
 
     return grid
 
@@ -287,12 +323,21 @@ class VQModel(pl.LightningModule):
     def get_last_layer(self):
         return self.decoder.conv_out.weight
 
-    def log_images(self, batch, only_inputs=False, only_samples=False, plot_ema=False, uvt=True, **kwargs):
+    def log_images(self, batch, only_inputs=False,
+                   only_samples=False, plot_ema=False, uvt=True,
+                   means=[], stds=[], **kwargs):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
+
         if only_inputs:
-            log["inputs"] = x
+            if uvt and len(means) > 0 and len(stds) > 0:
+                log["inputs_u"], log["inputs_v"], log["inputs_t"] = save_gray_image(
+                    x, ['viridis', 'viridis', 'RdBu_r'], stds, means)
+                #  = save_gray_image(x, 'viridis', stds, means)[1]
+                #  = save_gray_image(x, 'RdBu_r', stds, means)[2]
+            else:
+                log["inputs"] = x
             return log
         xrec, _ = self(x)
 
@@ -300,7 +345,6 @@ class VQModel(pl.LightningModule):
         h = self.quant_conv(h)
         quant, emb_loss, info = self.quantize(h)
         dec = self.decode(quant)
-
         if x.shape[1] > 3:
             # colorize with random projection
             assert xrec.shape[1] > 3
@@ -308,15 +352,47 @@ class VQModel(pl.LightningModule):
             xrec = self.to_rgb(xrec)
             dec = self.to_rgb(dec)
         if not only_samples:
-            log["inputs"] = x
-            log["reconstructions"] = xrec
-        log["samples"] = dec
+            if uvt and len(means) > 0 and len(stds) > 0:
+                log["inputs_u"], log["inputs_v"], log["inputs_t"] = save_gray_image(
+                    x, ['viridis', 'viridis', 'RdBu_r'], stds, means)
+
+                log["reconstructions_u"], log["reconstructions_v"], log["reconstructions_t"] = save_gray_image(
+                    xrec, ['viridis', 'viridis', 'RdBu_r'], stds, means)
+
+                # grid_t = save_gray_image(
+                #     x, ['viridis', 'viridis', 'RdBu_r'], stds, means)[2]
+                # grid_t = grid_t.detach().cpu().numpy()[0]
+                # grid_t = np.transpose(grid_t, axes=[1, 2, 0])
+                # grid_t = plt.imshow(grid_t)
+                # plt.show()
+
+            else:
+                log["inputs"] = x
+                log["reconstructions"] = xrec
+
+        if uvt:
+
+            log["samples_u"], log["samples_v"], log["samples_t"] = save_gray_image(
+                dec, ['viridis', 'viridis', 'RdBu_r'], stds, means)
+        else:
+            log["samples"] = dec
+
         if plot_ema:
             with self.ema_scope():
                 xrec_ema, _ = self(x)
                 if x.shape[1] > 3:
                     xrec_ema = self.to_rgb(xrec_ema)
-                log["reconstructions_ema"] = xrec_ema
+
+                if uvt:
+                    log["reconstructions_ema_u"] = save_gray_image(
+                        xrec_ema, 'viridis', stds, means)[0]
+                    log["reconstructions_ema_v"] = save_gray_image(
+                        xrec_ema, 'viridis', stds, means)[1]
+                    log["reconstructions_ema_t"] = save_gray_image(
+                        xrec_ema, 'RdBu_r', stds, means)[2]
+                else:
+                    log["reconstructions_ema"] = xrec_ema
+
         return log
 
     def to_rgb(self, x):
@@ -326,6 +402,7 @@ class VQModel(pl.LightningModule):
                 "colorize", torch.randn(3, x.shape[1], 1, 1).to(x))
         x = F.conv2d(x, weight=self.colorize)
         x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
+
         return x
 
 
@@ -474,31 +551,40 @@ class AutoencoderKL(pl.LightningModule):
         return self.decoder.conv_out.weight
 
     @torch.no_grad()
-    def log_images(self, batch, only_inputs=False, only_samples=False, uvt=True, **kwargs):
+    def log_images(self, batch, only_inputs=False, only_samples=False, uvt=True,
+                   means=[], stds=[], **kwargs):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
 
         if not only_inputs:
             xrec, posterior = self(x)
-            if uvt:
-                x = uvt_transform(x, stds, means)
-                xrec = uvt_transform(xrec, stds, means)
-                log["reconstructions"] = xrec
-                log["inputs"] = x
-            else:
-                if x.shape[1] > 3:
-                    # colorize with random projection
-                    assert xrec.shape[1] > 3
-                    x = self.to_rgb(x)
-                    xrec = self.to_rgb(xrec)
-                log["samples"] = self.decode(
-                    torch.randn_like(posterior.sample()))
-                if not only_samples:
+            if x.shape[1] > 3:
+                # colorize with random projection
+                assert xrec.shape[1] > 3
+                x = self.to_rgb(x)
+                xrec = self.to_rgb(xrec)
+            log["samples"] = self.decode(
+                torch.randn_like(posterior.sample()))
+            if not only_samples:
+                if uvt and len(means) > 0 and len(stds) > 0:
+                    log["reconstructions_u"] = save_gray_image(
+                        xrec, 'viridis', stds, means)[0]
+                    log["reconstructions_v"] = save_gray_image(
+                        xrec, 'viridis', stds, means)[1]
+                    log["reconstructions_t"] = save_gray_image(
+                        xrec, 'RdBu_r', stds, means)[2]
+                else:
                     log["reconstructions"] = xrec
 
         if not only_samples:
-            log["inputs"] = x
+            if uvt and len(means) > 0 and len(stds) > 0:
+                log["inputs_u"] = save_gray_image(x, 'viridis', stds, means)[0]
+                log["inputs_v"] = save_gray_image(x, 'viridis', stds, means)[1]
+                log["inputs_t"] = save_gray_image(x, 'RdBu_r', stds, means)[2]
+            else:
+                log["inputs"] = x
+
         return log
 
     def to_rgb(self, x):

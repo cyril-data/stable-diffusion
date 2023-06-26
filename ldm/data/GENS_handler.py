@@ -86,9 +86,7 @@ class ISDataset(Dataset):
         position = self.labels.iloc[idx, 2]
 
         # transpose to get off with transform.Normalize builtin transposition
-        # print("Handle 1", sample.shape)
         sample = sample.transpose((1, 2, 0))
-        # print("Handle 2", sample.shape)
 
         # sample[:,:,2]=2.*(sample[:,:,2]-251.14634704589844)/(315.44622802734375-251.14634704589844)-1.
         # sample[:,:,0]=2.*(sample[:,:,0]+27.318836212158203)/(29.181968688964844 + 27.318836212158203)-1.
@@ -230,7 +228,7 @@ class ISData_Loader_train(ISDataset):
                  crop_indexes=[78, 206, 55, 183],
                  path="data/train_IS_1_1.0_0_0_0_0_0_256_done_red/",
                  shuf=False,
-                 add_coords=False, 
+                 add_coords=False,
                  num_workers=0):
 
         super().__init__(path, 'IS_method_labels.csv',
@@ -238,7 +236,8 @@ class ISData_Loader_train(ISDataset):
 
         self.path = path
         self.batch = batch_size
-        if num_workers == 0 : num_workers=self.batch*2
+        if num_workers == 0:
+            num_workers = self.batch*2
         self.shuf = shuf  # shuffle performed once per epoch
         self.VI = var_indexes
         self.CI = crop_indexes
