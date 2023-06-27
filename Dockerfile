@@ -1,35 +1,26 @@
-FROM nvidia/cuda:11.3.0-base-ubuntu20.04
+FROM ubuntu:22.04
 
-# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+ENV CONDA_SRC=/conda
 
-# RUN wget -qO- https://get.docker.com/gpg | sudo apt-key add -
+# Install conda
 USER root
 
 ENV TZ=Europe
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apt-get update && apt-get install -y wget  \
-    && apt-get install -y git-all \
-    && apt-get install python3.8 -y \
-    && apt-get install python3.8-distutils  -y  \
-    && ln -s /usr/bin/python3.8 /usr/bin/python
-# RUN apt-get update&& \
-#     apt-get install -y software-properties-common && \
-#     add-apt-repository -y ppa:deadsnakes/ppa && \
-#     apt-get update && \ apt-get install python3.8 -y  
+RUN mkdir -p ${CONDA_SRC} && \ 
+    apt-get update && \ 
+    apt-get install -y wget && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${CONDA_SRC}/miniconda.sh && \
+    bash ${CONDA_SRC}/miniconda.sh -b -u -p ${CONDA_SRC} && \
+    rm -rf ${CONDA_SRC}/miniconda.sh  && \
+    ${CONDA_SRC}/bin/conda init bash  && \
+    ${CONDA_SRC}/bin/conda init zsh && \
+    ${CONDA_SRC}/bin/conda clean -ay
 
-RUN python --version
+RUN apt-get update && apt-get install -y git-all
 
-
-RUN wget https://bootstrap.pypa.io/get-pip.py
-
-RUN python get-pip.py
-
-COPY requirements.txt /root/requirements.txt
-
-RUN python -m pip install -r /root/requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
-
-RUN python -m pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip
-
-RUN python -m pip install -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
-RUN python -m pip install -e .
+# Create the environment:
+COPY environment.yaml setup.py .
+     
+RUN ${CONDA_SRC}/bin/conda env create -f environment.yaml

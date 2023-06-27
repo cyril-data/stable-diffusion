@@ -63,6 +63,9 @@ def save_gray_image(grids, colormap, stds, means):
 
 def uvt_transform(image, stds, means):
 
+    print("stds", stds)
+    print("means", means)
+
     invTrans = transforms.Compose([
         transforms.Normalize(
             mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),

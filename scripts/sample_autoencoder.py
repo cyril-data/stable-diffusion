@@ -263,7 +263,8 @@ if __name__ == "__main__":
     for batch_ndx, sample in enumerate(data):
 
         with torch.no_grad():
-            images = model.log_images(sample, only_samples=opt.only_sample)
+            images = model.log_images(
+                sample, only_samples=opt.only_sample, uvt=False, means=means, stds=stds)
         for k in images:
             images[k] = images[k]
             if isinstance(images[k], torch.Tensor):
