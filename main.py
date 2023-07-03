@@ -154,7 +154,7 @@ def get_parser(**parser_kwargs):
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=0,
+        default=None,
         help="overwrite num_workers",
     )
     return parser
@@ -772,9 +772,7 @@ if __name__ == "__main__":
 
         if opt.batch_size != None:
             config.data.params.batch_size = opt.batch_size
-        if opt.num_workers == 0:
-            config.data.params.num_workers = config.data.params.batch_size * 2
-        else:
+        if opt.num_workers != None:
             config.data.params.num_workers = opt.num_workers
 
         data = instantiate_from_config(config.data)

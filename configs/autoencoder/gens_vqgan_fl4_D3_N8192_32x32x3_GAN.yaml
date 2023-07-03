@@ -26,7 +26,7 @@ model:
       params:
         disc_conditional: false
         disc_in_channels: 3
-        disc_start: 500000
+        disc_start: 90000
         disc_weight: 0.6
         codebook_weight: 1.0
 
@@ -48,6 +48,8 @@ lightning:
         batch_frequency: 1000
         max_images: 8
         increase_log_steps: True
+        log_images_kwargs:
+          uvt: True
 
   modelcheckpoint:
     params:
