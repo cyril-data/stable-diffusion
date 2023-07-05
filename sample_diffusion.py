@@ -18,7 +18,9 @@ from ldm.util import instantiate_from_config
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 
+
 def rescale(x): return (x + 1.) / 2.
+
 
 def save_gray_image(grid, outfile, colormap):
     plt.imshow(grid, cmap=colormap)
@@ -27,6 +29,7 @@ def save_gray_image(grid, outfile, colormap):
     # np.save(os.path.split(
     #     outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
     plt.close()
+
 
 def custom_to_pil(x):
     x = x.detach().cpu()
@@ -122,8 +125,8 @@ def make_convolutional_sample(model, batch_size, vanilla=False, custom_steps=Non
 
 
 def run(
-    model, logdir, batch_size=50, vanilla=False, custom_steps=None, 
-    eta=None, n_samples=50000, nplog=None, gens=False, means=None, stds=None):
+        model, logdir, batch_size=50, vanilla=False, custom_steps=None,
+        eta=None, n_samples=50000, nplog=None, gens=False, means=None, stds=None):
 
     if vanilla:
         print(
@@ -169,7 +172,7 @@ def save_logs(logs, path, n_saved=0, key="sample", np_path=None, gens=False, mea
             batch = logs[key]
             if np_path is None:
                 for x in batch:
-                    if gens :
+                    if gens:
                         invTrans = transforms.Compose([
                             transforms.Normalize(
                                 mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
@@ -187,10 +190,13 @@ def save_logs(logs, path, n_saved=0, key="sample", np_path=None, gens=False, mea
                         grid = grid.detach().cpu()
                         grid = grid.numpy()
 
-                        save_gray_image(grid[:, :, 0], os.path.join(path, f"u_{n_saved:06}.png"), 'viridis')
-                        save_gray_image(grid[:, :, 1], os.path.join(path, f"v_{n_saved:06}.png"), 'viridis')
-                        save_gray_image(grid[:, :, 2], os.path.join(path, f"t2m_{n_saved:06}.png"), 'RdBu_r')
-                    else : 
+                        save_gray_image(grid[:, :, 0], os.path.join(
+                            path, f"u_{n_saved:06}.png"), 'viridis')
+                        save_gray_image(grid[:, :, 1], os.path.join(
+                            path, f"v_{n_saved:06}.png"), 'viridis')
+                        save_gray_image(grid[:, :, 2], os.path.join(
+                            path, f"t2m_{n_saved:06}.png"), 'RdBu_r')
+                    else:
                         img = custom_to_pil(x)
                         print("save images path :", path)
                         print("save images key :", key)
@@ -292,7 +298,11 @@ def get_parser():
 def load_model_from_config(config, sd, gpus=0):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
-    device=f'cuda:{gpus}'
+
+    if gpus == False:
+        device = "cpu"
+    else:
+        device = f'cuda:{gpus}'
     model.to(torch.device(device))
     model.eval()
     return model
@@ -301,9 +311,9 @@ def load_model_from_config(config, sd, gpus=0):
 def load_model(config, ckpt, eval_mode, gpus=0):
     if ckpt:
         print(f"Loading model from {ckpt}")
-        if gpus==False : 
+        if gpus == False:
             pl_sd = torch.load(ckpt, map_location="cpu")
-        else : 
+        else:
             pl_sd = torch.load(ckpt, map_location=f'cuda:{gpus}')
 
         global_step = pl_sd["global_step"]
@@ -311,7 +321,7 @@ def load_model(config, ckpt, eval_mode, gpus=0):
         pl_sd = {"state_dict": None}
         global_step = None
     model = load_model_from_config(config.model,
-                                   pl_sd["state_dict"], 
+                                   pl_sd["state_dict"],
                                    gpus=gpus)
 
     return model, global_step
@@ -354,9 +364,9 @@ if __name__ == "__main__":
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
 
-    gpus = opt.gpus
+    gpus = opt.gpus if opt.gpus >= 0 else False
     eval_mode = True
-    gens=opt.gens
+    gens = opt.gens
 
     if opt.logdir != "none":
         locallog = logdir.split(os.sep)[-1]
@@ -368,12 +378,12 @@ if __name__ == "__main__":
 
     # data
 
-    Means = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/"+'mean_with_orog.npy')[[1, 2, 3]]
-    Maxs = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/"+'max_with_orog.npy')[[1, 2, 3]]
+    Means = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/" +
+                    'mean_with_orog.npy')[[1, 2, 3]]
+    Maxs = np.load("data/train_IS_1_1.0_0_0_0_0_0_256_done_red/" +
+                   'max_with_orog.npy')[[1, 2, 3]]
     means = list(tuple(Means))
     stds = list(tuple((1.0/0.95)*(Maxs)))
-
-
 
     print("means", means)
     print("stds", stds)
@@ -404,6 +414,6 @@ if __name__ == "__main__":
 
     run(model, imglogdir, eta=opt.eta,
         vanilla=opt.vanilla_sample,  n_samples=opt.n_samples, custom_steps=opt.custom_steps,
-        batch_size=opt.batch_size, nplog=numpylogdir,gens=gens, means=means, stds=stds)
+        batch_size=opt.batch_size, nplog=numpylogdir, gens=gens, means=means, stds=stds)
 
     print("done.")
