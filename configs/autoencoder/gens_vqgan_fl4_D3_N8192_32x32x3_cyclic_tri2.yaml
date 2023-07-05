@@ -1,0 +1,72 @@
+model:
+  base_learning_rate: 1.e-05
+  target: ldm.models.autoencoder.VQModel
+  params:
+    embed_dim: 3 # must be = to z_channels
+    n_embed: 8192 
+    monitor: val/rec_loss
+    image_key: 0
+    
+    ddconfig:
+      double_z: false
+      z_channels: 3
+      resolution: 128
+      in_channels: 3
+      out_ch: 3
+      ch: 128
+      ch_mult:
+      - 1
+      - 2
+      - 4
+      num_res_blocks: 2
+      attn_resolutions: []
+      dropout: 0.0
+      
+    lossconfig:
+      target: ldm.modules.losses.vqperceptual.VQLPIPSWithDiscriminator
+      params:
+        disc_conditional: false
+        disc_in_channels: 3
+        disc_start: 500000
+        disc_weight: 0.6
+        codebook_weight: 1.0
+
+    scheduler_config:
+      target: torch.optim.lr_scheduler.CyclicLR
+      params:
+        base_lr: 1.e-6
+        max_lr: 1.e-5
+        step_size_up: 5000
+        mode: triangular2     
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 2
+    wrap: True
+    train:
+      target: ldm.data.GENS_handler.ISData_Loader_train
+    validation:
+      target: ldm.data.GENS_handler.ISData_Loader_val
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 1000
+        max_images: 2
+        increase_log_steps: True
+        log_images_kwargs:
+          uvt: True
+
+  modelcheckpoint:
+    params:
+      every_n_epochs: 50
+      save_last: True
+      save_top_k: 10
+
+  trainer:
+    benchmark: True
+    accelerator: ddp
+    max_epochs: 30000
