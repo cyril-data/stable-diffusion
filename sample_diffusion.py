@@ -19,6 +19,22 @@ import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 
 
+# makedirs_origin = os.makedirs
+# def makedirs_pathlib(path, mode=0o777, exist_ok=False):
+#     p = Path(path)
+#     try:
+#         p.mkdir(mode=mode, exist_ok=exist_ok)
+#     except FileNotFoundError as e:
+#         print(f"WARNING : {e} \n=> Nested directory creation activates")
+#         p.mkdir(parents=True, exist_ok=exist_ok)
+#     except FileExistsError as e:
+#         print(f"WARNING : {e} \n=> the nested directory already exist")
+#         pass
+#     pass
+# os.makedirs = makedirs_pathlib
+
+
+
 def rescale(x): return (x + 1.) / 2.
 
 
@@ -26,8 +42,8 @@ def save_gray_image(grid, outfile, colormap):
     plt.imshow(grid, cmap=colormap)
     plt.colorbar()
     plt.savefig(outfile)
-    # np.save(os.path.split(
-    #     outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
+    np.save(os.path.split(
+        outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
     plt.close()
 
 
@@ -190,12 +206,22 @@ def save_logs(logs, path, n_saved=0, key="sample", np_path=None, gens=False, mea
                         grid = grid.detach().cpu()
                         grid = grid.numpy()
 
+                        os.makedirs(os.path.join(path, "u"), exist_ok=True)
+                        os.makedirs(os.path.join(os.path.join(path, "u"),"npy"), exist_ok=True)
+                        
+                        os.makedirs(os.path.join(path, "v"), exist_ok=True)
+                        os.makedirs(os.path.join(os.path.join(path, "v"),"npy"), exist_ok=True)
+                        
+                        os.makedirs(os.path.join(path, "t"), exist_ok=True)
+                        os.makedirs(os.path.join(os.path.join(path, "t"),"npy"), exist_ok=True)
+
+
                         save_gray_image(grid[:, :, 0], os.path.join(
-                            path, f"u_{n_saved:06}.png"), 'viridis')
+                            os.path.join(path, "u"), f"u_{n_saved:06}.png"), 'viridis')
                         save_gray_image(grid[:, :, 1], os.path.join(
-                            path, f"v_{n_saved:06}.png"), 'viridis')
+                            os.path.join(path, "v"), f"v_{n_saved:06}.png"), 'viridis')
                         save_gray_image(grid[:, :, 2], os.path.join(
-                            path, f"t2m_{n_saved:06}.png"), 'RdBu_r')
+                            os.path.join(path, "t"), f"t2m_{n_saved:06}.png"), 'RdBu_r')
                     else:
                         img = custom_to_pil(x)
                         print("save images path :", path)
@@ -273,8 +299,8 @@ def get_parser():
     )
     parser.add_argument(
         "--gpus",
-        type=str,
-        default=0
+        type=bool,
+        default=True
     )
     parser.add_argument(
         "-b",
@@ -295,32 +321,23 @@ def get_parser():
     return parser
 
 
-def load_model_from_config(config, sd, gpus=0):
+def load_model_from_config(config, sd, gpus=True):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
 
-    if gpus == "-1" or gpus == "False":
-        device = "cpu"
+    if gpus :
+        model.cuda()
     else:
-        device = f'cuda:{gpus}'
-    print("*"*80)
-    print("gpus ", gpus)
-    print("load_model_from_config device ", device)
-    print("*"*80)
-    model.to(torch.device(device))
+        model.to(torch.device("cpu"))
+
     model.eval()
     return model
 
 
-def load_model(config, ckpt, eval_mode, gpus=0):
+def load_model(config, ckpt, eval_mode, gpus=True):
     if ckpt:
         print(f"Loading model from {ckpt}")
-        print("gpus", gpus)
-        if gpus == "-1" or gpus == "False":
-            pl_sd = torch.load(ckpt, map_location="cpu")
-        else:
-            pl_sd = torch.load(ckpt, map_location=f'cuda:{gpus}')
-
+        pl_sd = torch.load(ckpt, map_location="cpu")
         global_step = pl_sd["global_step"]
     else:
         pl_sd = {"state_dict": None}

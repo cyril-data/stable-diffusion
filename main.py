@@ -581,7 +581,7 @@ if __name__ == "__main__":
         opt.resume_from_checkpoint = ckpt
         base_configs = sorted(
             glob.glob(os.path.join(logdir, "configs/*.yaml")))
-        opt.base = base_configs + opt.base
+        opt.base = opt.base
         _tmp = logdir.split("/")
         nowname = _tmp[-1]
     else:
@@ -602,6 +602,9 @@ if __name__ == "__main__":
 
     try:
         # init and save configs
+        for cfg in opt.base : 
+            print("cfg", cfg)    
+
         configs = [OmegaConf.load(cfg) for cfg in opt.base]
         cli = OmegaConf.from_dotlist(unknown)
         config = OmegaConf.merge(*configs, cli)

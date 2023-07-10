@@ -2,6 +2,7 @@ import torch
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
+import importlib
 
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
 
@@ -9,6 +10,7 @@ from ldm.modules.diffusionmodules.model import Encoder, Decoder
 from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
 
 from ldm.util import instantiate_from_config
+from omegaconf import OmegaConf, open_dict
 
 import os
 import numpy as np
@@ -62,9 +64,6 @@ def save_gray_image(grids, colormap, stds, means):
 
 
 def uvt_transform(image, stds, means):
-
-    print("stds", stds)
-    print("means", means)
 
     invTrans = transforms.Compose([
         transforms.Normalize(
@@ -304,22 +303,53 @@ class VQModel(pl.LightningModule):
         opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
                                     lr=lr_d, betas=(0.5, 0.9))
 
-        if self.scheduler_config is not None:
-            scheduler = instantiate_from_config(self.scheduler_config)
+        if self.scheduler_config is not None : 
+            if "torch" in self.scheduler_config.target  : 
+                print("self.scheduler_config[params]", self.scheduler_config["params"])
 
-            print("Setting up LambdaLR scheduler...")
-            scheduler = [
-                {
-                    'scheduler': LambdaLR(opt_ae, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                },
-                {
-                    'scheduler': LambdaLR(opt_disc, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                },
-            ]
+                dict_sch = OmegaConf.to_container(self.scheduler_config, resolve=True)
+                dict_sch["params"]["optimizer"] = opt_ae
+
+                print("dict_sch scheduler_ae", dict_sch )
+
+
+                scheduler_ae = instantiate_from_config(dict_sch)
+
+                dict_sch = OmegaConf.to_container(self.scheduler_config, resolve=True)
+                dict_sch["params"]["optimizer"] = opt_disc
+                scheduler_disc = instantiate_from_config(dict_sch)
+
+                scheduler = [
+                    {
+                        'scheduler': scheduler_ae,
+                        'interval': 'step',
+                        'frequency': 1
+                    },
+                    {
+                        'scheduler': scheduler_disc,
+                        'interval': 'step',
+                        'frequency': 1
+                    },
+                ]
+
+            else : 
+
+                scheduler = instantiate_from_config(self.scheduler_config)
+
+                print("Setting up LambdaLR scheduler...")
+                scheduler = [
+                    {
+                        'scheduler': LambdaLR(opt_ae, lr_lambda=scheduler.schedule),
+                        'interval': 'step',
+                        'frequency': 1
+                    },
+                    {
+                        'scheduler': LambdaLR(opt_disc, lr_lambda=scheduler.schedule),
+                        'interval': 'step',
+                        'frequency': 1
+                    },
+                ]
+
             return [opt_ae, opt_disc], scheduler
         return [opt_ae, opt_disc], []
 

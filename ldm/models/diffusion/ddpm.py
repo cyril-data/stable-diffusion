@@ -17,6 +17,9 @@ from functools import partial
 from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
+from omegaconf import OmegaConf, open_dict
+
+
 
 from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config
 from ldm.modules.ema import LitEma
@@ -1481,15 +1484,33 @@ class LatentDiffusion(DDPM):
         opt = torch.optim.AdamW(params, lr=lr)
         if self.use_scheduler:
             assert 'target' in self.scheduler_config
-            scheduler = instantiate_from_config(self.scheduler_config)
 
-            print("Setting up LambdaLR scheduler...")
-            scheduler = [
-                {
-                    'scheduler': LambdaLR(opt, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                }]
+            if "torch" in self.scheduler_config.target  : 
+
+                dict_sch = OmegaConf.to_container(self.scheduler_config, resolve=True)
+                dict_sch["params"]["optimizer"] = opt
+                scheduler = instantiate_from_config(dict_sch)
+
+                print("Setting up torch scheduler...")
+                scheduler = [
+                    {
+                        'scheduler': scheduler,
+                        'interval': 'step',
+                        'frequency': 1
+                    }]
+
+            else : 
+
+                scheduler = instantiate_from_config(self.scheduler_config)
+                print("Setting up LambdaLR scheduler...")
+                scheduler = [
+                    {
+                        'scheduler': LambdaLR(opt, lr_lambda=scheduler.schedule),
+                        'interval': 'step',
+                        'frequency': 1
+                    }]
+
+
             return [opt], scheduler
         return opt
 
