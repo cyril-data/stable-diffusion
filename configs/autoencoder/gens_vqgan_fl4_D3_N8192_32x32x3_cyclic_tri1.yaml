@@ -37,7 +37,7 @@ model:
         base_lr: 1.e-6
         max_lr: 1.e-5
         step_size_up: 5000
-        mode: triangular2     
+        mode: triangular     
         cycle_momentum: False
 
 data:

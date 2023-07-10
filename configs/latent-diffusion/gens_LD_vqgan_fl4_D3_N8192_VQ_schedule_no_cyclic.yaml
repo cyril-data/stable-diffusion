@@ -40,7 +40,7 @@ model:
         embed_dim: 3 # must be = to z_channels
         n_embed: 8192
         image_key: 0
-        ckpt_path: models/first_stage_models/gens_LD_vqgan_fl4_D3_N8192_32x32x3/3999.ckpt
+        ckpt_path: models/first_stage_models/gens_LD_vqgan_fl4_D3_N8192_32x32x3/2199-v1_cyclic_tri2_mlr5-5.ckpt
         ddconfig:
           double_z: false
           z_channels: 3
@@ -58,6 +58,16 @@ model:
         lossconfig:
           target: torch.nn.Identity
     cond_stage_config: __is_unconditional__
+
+
+    # scheduler_config:
+    #   target: torch.optim.lr_scheduler.CyclicLR
+    #   params:
+    #     base_lr: 1.e-6
+    #     max_lr: 5.e-5
+    #     step_size_up: 1000
+    #     mode: triangular     
+    #     cycle_momentum: False
 
 
 data:

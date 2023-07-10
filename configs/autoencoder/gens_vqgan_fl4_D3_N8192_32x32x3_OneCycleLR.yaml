@@ -32,13 +32,14 @@ model:
         codebook_weight: 1.0
 
     scheduler_config:
-      target: torch.optim.lr_scheduler.CyclicLR
+      target: torch.optim.lr_scheduler.OneCycleLR
       params:
-        base_lr: 1.e-6
         max_lr: 1.e-5
-        step_size_up: 5000
-        mode: triangular2     
-        cycle_momentum: False
+        steps_per_epoch: 260
+        epochs: 2500
+        anneal_strategy: cos
+        last_epoch: 2048
+
 
 data:
   target: main.DataModuleFromConfig
