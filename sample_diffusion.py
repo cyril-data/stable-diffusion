@@ -273,7 +273,7 @@ def get_parser():
     )
     parser.add_argument(
         "--gpus",
-        type=int,
+        type=str,
         default=0
     )
     parser.add_argument(
@@ -299,10 +299,14 @@ def load_model_from_config(config, sd, gpus=0):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
 
-    if gpus == False:
+    if gpus == "-1" or gpus == "False":
         device = "cpu"
     else:
         device = f'cuda:{gpus}'
+    print("*"*80)
+    print("gpus ", gpus)
+    print("load_model_from_config device ", device)
+    print("*"*80)
     model.to(torch.device(device))
     model.eval()
     return model
@@ -311,7 +315,8 @@ def load_model_from_config(config, sd, gpus=0):
 def load_model(config, ckpt, eval_mode, gpus=0):
     if ckpt:
         print(f"Loading model from {ckpt}")
-        if gpus == False:
+        print("gpus", gpus)
+        if gpus == "-1" or gpus == "False":
             pl_sd = torch.load(ckpt, map_location="cpu")
         else:
             pl_sd = torch.load(ckpt, map_location=f'cuda:{gpus}')
@@ -320,6 +325,7 @@ def load_model(config, ckpt, eval_mode, gpus=0):
     else:
         pl_sd = {"state_dict": None}
         global_step = None
+
     model = load_model_from_config(config.model,
                                    pl_sd["state_dict"],
                                    gpus=gpus)
@@ -364,7 +370,7 @@ if __name__ == "__main__":
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
 
-    gpus = opt.gpus if opt.gpus >= 0 else False
+    gpus = opt.gpus
     eval_mode = True
     gens = opt.gens
 
