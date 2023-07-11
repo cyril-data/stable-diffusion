@@ -34,7 +34,6 @@ import torchvision.transforms as transforms
 # os.makedirs = makedirs_pathlib
 
 
-
 def rescale(x): return (x + 1.) / 2.
 
 
@@ -42,8 +41,6 @@ def save_gray_image(grid, outfile, colormap):
     plt.imshow(grid, cmap=colormap)
     plt.colorbar()
     plt.savefig(outfile)
-    np.save(os.path.split(
-        outfile)[0] + "/npy/" + os.path.split(outfile)[1], grid)
     plt.close()
 
 
@@ -142,7 +139,7 @@ def make_convolutional_sample(model, batch_size, vanilla=False, custom_steps=Non
 
 def run(
         model, logdir, batch_size=50, vanilla=False, custom_steps=None,
-        eta=None, n_samples=50000, nplog=None, gens=False, means=None, stds=None):
+        eta=None, n_samples=50000, nplog=None, gens=False, means=None, stds=None, png=False):
 
     if vanilla:
         print(
@@ -152,7 +149,7 @@ def run(
             f'Using DDIM sampling with {custom_steps} sampling steps and eta={eta}')
 
     tstart = time.time()
-    n_saved = len(glob.glob(os.path.join(logdir, '*.png')))-1
+    n_saved = len(glob.glob(os.path.join(logdir, '*.png')))
     # path = logdir
     if model.cond_stage_model is None:
         all_images = []
@@ -163,16 +160,14 @@ def run(
                                              vanilla=vanilla, custom_steps=custom_steps,
                                              eta=eta)
             n_saved = save_logs(
-                logs, logdir, n_saved=n_saved, key="sample", gens=gens, means=means, stds=stds)
+                logs, logdir, n_saved=n_saved, key="sample", gens=gens, means=means, stds=stds, nplog=nplog, png=png)
+
             all_images.extend([custom_to_np(logs["sample"])])
             if n_saved >= n_samples:
                 print(f'Finish after generating {n_saved} samples')
                 break
         all_img = np.concatenate(all_images, axis=0)
         all_img = all_img[:n_samples]
-        shape_str = "x".join([str(x) for x in all_img.shape])
-        nppath = os.path.join(nplog, f"{shape_str}-samples.npz")
-        np.savez(nppath, all_img)
 
     else:
         raise NotImplementedError(
@@ -182,46 +177,57 @@ def run(
         f"sampling of {n_saved} images finished in {(time.time() - tstart) / 60.:.2f} minutes.")
 
 
-def save_logs(logs, path, n_saved=0, key="sample", np_path=None, gens=False, means=None, stds=None):
+def save_logs(
+        logs, path, n_saved=0, key="sample", np_path=None, gens=False, means=None, stds=None, nplog=None, png=False):
+
     for k in logs:
         if k == key:
             batch = logs[key]
             if np_path is None:
                 for x in batch:
                     if gens:
-                        invTrans = transforms.Compose([
+
+                        normTransForPostGens = transforms.Compose([
                             transforms.Normalize(
                                 mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
                             transforms.Normalize(
                                 mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
-                            transforms.Normalize(
-                                mean=[0.] * 3, std=[1 / el for el in stds]),
-                            transforms.Normalize(
-                                mean=[-el for el in means], std=[1.] * 3),
                         ])
-                        grid = invTrans(x)
-                        grid = torch.transpose(grid, 0, 2)
-                        grid = torch.fliplr(grid)
-                        grid = torch.rot90(grid, 2)
+                        grid = normTransForPostGens(x)
                         grid = grid.detach().cpu()
                         grid = grid.numpy()
 
-                        os.makedirs(os.path.join(path, "u"), exist_ok=True)
-                        os.makedirs(os.path.join(os.path.join(path, "u"),"npy"), exist_ok=True)
-                        
-                        os.makedirs(os.path.join(path, "v"), exist_ok=True)
-                        os.makedirs(os.path.join(os.path.join(path, "v"),"npy"), exist_ok=True)
-                        
-                        os.makedirs(os.path.join(path, "t"), exist_ok=True)
-                        os.makedirs(os.path.join(os.path.join(path, "t"),"npy"), exist_ok=True)
+                        np.save(os.path.join(
+                            nplog, f"_Fsample_0_{n_saved:06}.npy"), grid)
 
+                        if png:
+                            invTrans = transforms.Compose([
+                                transforms.Normalize(
+                                    mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
+                                transforms.Normalize(
+                                    mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
+                                transforms.Normalize(
+                                    mean=[0.] * 3, std=[1 / el for el in stds]),
+                                transforms.Normalize(
+                                    mean=[-el for el in means], std=[1.] * 3),
+                            ])
+                            grid = invTrans(x)
+                            grid = torch.transpose(grid, 0, 2)
+                            grid = torch.fliplr(grid)
+                            grid = torch.rot90(grid, 2)
+                            grid = grid.detach().cpu()
+                            grid = grid.numpy()
 
-                        save_gray_image(grid[:, :, 0], os.path.join(
-                            os.path.join(path, "u"), f"u_{n_saved:06}.png"), 'viridis')
-                        save_gray_image(grid[:, :, 1], os.path.join(
-                            os.path.join(path, "v"), f"v_{n_saved:06}.png"), 'viridis')
-                        save_gray_image(grid[:, :, 2], os.path.join(
-                            os.path.join(path, "t"), f"t2m_{n_saved:06}.png"), 'RdBu_r')
+                            os.makedirs(os.path.join(path, "u"), exist_ok=True)
+                            os.makedirs(os.path.join(path, "v"), exist_ok=True)
+                            os.makedirs(os.path.join(path, "t"), exist_ok=True)
+
+                            save_gray_image(grid[:, :, 0], os.path.join(
+                                os.path.join(path, "u"), f"u_{n_saved:06}.png"), 'viridis')
+                            save_gray_image(grid[:, :, 1], os.path.join(
+                                os.path.join(path, "v"), f"v_{n_saved:06}.png"), 'viridis')
+                            save_gray_image(grid[:, :, 2], os.path.join(
+                                os.path.join(path, "t"), f"t2m_{n_saved:06}.png"), 'RdBu_r')
                     else:
                         img = custom_to_pil(x)
                         print("save images path :", path)
@@ -299,9 +305,9 @@ def get_parser():
     )
     parser.add_argument(
         "--gpus",
-        type=bool,
-        default=True
+        action='store_true'
     )
+
     parser.add_argument(
         "-b",
         "--base",
@@ -318,6 +324,11 @@ def get_parser():
         default=True,
     )
 
+    parser.add_argument(
+        "--png",
+        action='store_true'
+    )
+
     return parser
 
 
@@ -325,7 +336,7 @@ def load_model_from_config(config, sd, gpus=True):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
 
-    if gpus :
+    if gpus:
         model.cuda()
     else:
         model.to(torch.device("cpu"))
@@ -411,7 +422,6 @@ if __name__ == "__main__":
     print("means", means)
     print("stds", stds)
     print("ckpt", ckpt)
-    print("config", config)
     print("gpus", gpus)
     print("eval_mode", eval_mode)
     model, global_step = load_model(config, ckpt, eval_mode, gpus=gpus)
@@ -437,6 +447,6 @@ if __name__ == "__main__":
 
     run(model, imglogdir, eta=opt.eta,
         vanilla=opt.vanilla_sample,  n_samples=opt.n_samples, custom_steps=opt.custom_steps,
-        batch_size=opt.batch_size, nplog=numpylogdir, gens=gens, means=means, stds=stds)
+        batch_size=opt.batch_size, nplog=numpylogdir, gens=gens, means=means, stds=stds, png=opt.png)
 
     print("done.")
