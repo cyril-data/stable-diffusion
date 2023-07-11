@@ -8,7 +8,7 @@ import torch
 import time
 import numpy as np
 from tqdm import trange
-
+import torch.nn as nn
 from omegaconf import OmegaConf
 from PIL import Image
 
@@ -305,7 +305,8 @@ def get_parser():
     )
     parser.add_argument(
         "--gpus",
-        action='store_true'
+        type=str,
+        default=''
     )
 
     parser.add_argument(
@@ -332,12 +333,13 @@ def get_parser():
     return parser
 
 
-def load_model_from_config(config, sd, gpus=True):
+def load_model_from_config(config, sd, gpus=False):
     model = instantiate_from_config(config)
     model.load_state_dict(sd, strict=False)
 
     if gpus:
-        model.cuda()
+        model = nn.DataParallel(model)
+        model.to(torch.device(f"cuda:{gpus}"))
     else:
         model.to(torch.device("cpu"))
 
@@ -345,7 +347,7 @@ def load_model_from_config(config, sd, gpus=True):
     return model
 
 
-def load_model(config, ckpt, eval_mode, gpus=True):
+def load_model(config, ckpt, eval_mode, gpus=False):
     if ckpt:
         print(f"Loading model from {ckpt}")
         pl_sd = torch.load(ckpt, map_location="cpu")
@@ -398,7 +400,11 @@ if __name__ == "__main__":
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
 
-    gpus = opt.gpus
+    gpus = opt.gpus if not opt.gpus == '' else False
+    print('*'*80)
+    print("gpus", gpus)
+    print('*'*80)
+
     eval_mode = True
     gens = opt.gens
 
@@ -422,7 +428,6 @@ if __name__ == "__main__":
     print("means", means)
     print("stds", stds)
     print("ckpt", ckpt)
-    print("gpus", gpus)
     print("eval_mode", eval_mode)
     model, global_step = load_model(config, ckpt, eval_mode, gpus=gpus)
     print(f"global step: {global_step}")
