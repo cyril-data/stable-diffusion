@@ -194,6 +194,12 @@ def save_logs(
                                 mean=[-el for el in [-1, -1, -1]], std=[1.] * 3),
                         ])
                         grid = normTransForPostGens(x)
+                        grid = torch.transpose(grid, 0, 2)
+                        grid = torch.fliplr(grid)
+                        grid = torch.rot90(grid, 1, [0,1])
+                        # # grid = torch.rot90(grid, 2)
+                        grid = torch.transpose(grid, 0, 2)
+
                         grid = grid.detach().cpu()
                         grid = grid.numpy()
 
@@ -201,6 +207,19 @@ def save_logs(
                             nplog, f"_Fsample_0_{n_saved:06}.npy"), grid)
 
                         if png:
+
+                            os.makedirs(os.path.join(path, "u"), exist_ok=True)
+                            os.makedirs(os.path.join(path, "v"), exist_ok=True)
+                            os.makedirs(os.path.join(path, "t"), exist_ok=True)
+
+                            save_gray_image(grid[0, :, :], os.path.join(
+                                os.path.join(path, "u"), f"u_Fsample_0_{n_saved:06}.png"), 'viridis')
+                            save_gray_image(grid[1, :, :], os.path.join(
+                                os.path.join(path, "v"), f"u_Fsample_0_{n_saved:06}.png"), 'viridis')
+                            save_gray_image(grid[2, :, :], os.path.join(
+                                os.path.join(path, "t"), f"u_Fsample_0_{n_saved:06}.png"), 'RdBu_r')
+
+
                             invTrans = transforms.Compose([
                                 transforms.Normalize(
                                     mean=[0.] * 3, std=[1 / el for el in [2, 2, 2]]),
@@ -218,9 +237,6 @@ def save_logs(
                             grid = grid.detach().cpu()
                             grid = grid.numpy()
 
-                            os.makedirs(os.path.join(path, "u"), exist_ok=True)
-                            os.makedirs(os.path.join(path, "v"), exist_ok=True)
-                            os.makedirs(os.path.join(path, "t"), exist_ok=True)
 
                             save_gray_image(grid[:, :, 0], os.path.join(
                                 os.path.join(path, "u"), f"u_{n_saved:06}.png"), 'viridis')
@@ -338,7 +354,6 @@ def load_model_from_config(config, sd, gpus=False):
     model.load_state_dict(sd, strict=False)
 
     if gpus:
-        model = nn.DataParallel(model)
         model.to(torch.device(f"cuda:{gpus}"))
     else:
         model.to(torch.device("cpu"))
